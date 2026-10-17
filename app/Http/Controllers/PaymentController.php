@@ -139,44 +139,101 @@ class PaymentController extends Controller
                     if (($object->payment_status ?? null) !== 'paid') {
                         return;
                     }
-                } else {
-                    $intentId = $object->id ?? null;
+                }  else {
+                $intentId = $object->id ?? null;
 
-                    if (
-                        ! $intentId
-                        || $payment->provider_payment_id !== $intentId
-                    ) {
-                        Log::warning('PaymentIntent does not match payment.', [
-                            'payment_id' => $payment->id,
-                        ]);
+                if (! $intentId) {
+                    Log::warning('Stripe event missing PaymentIntent ID.', [
+                        'payment_id' => $payment->id,
+                        'event_type' => $event->type,
+                    ]);
 
-                        return;
-                    }
-
-                    if ($event->type === 'payment_intent.payment_failed') {
-                        $payment->update([
-                            'status' => PaymentStatus::FAILED,
-                        ]);
-
-                        return;
-                    }
-
-                    if ($event->type === 'payment_intent.canceled') {
-                        $payment->update([
-                            'status' => PaymentStatus::CANCELLED,
-                        ]);
-
-                        return;
-                    }
-
-                    if (($object->status ?? null) !== 'succeeded') {
-                        return;
-                    }
-
-                    $amount = $object->amount_received ?? $object->amount ?? null;
-                    $currency = strtolower($object->currency ?? '');
-                    $paymentIntentId = $intentId;
+                    return;
                 }
+
+                /*
+                 * Web Checkout:
+                 * A failed card attempt does not mean the Checkout Session
+                 * has permanently failed. Let Checkout events determine
+                 * whether the session is paid or expired.
+                 */
+                $isCheckoutIntent =
+                    $payment->provider_payment_id === null
+                    && $payment->stripe_checkout_session_id !== null
+                    && (string) ($object->metadata->payment_id ?? '')
+                    === (string) $payment->id;
+
+                if ($isCheckoutIntent) {
+                    if ($event->type === 'payment_intent.payment_failed') {
+                        Log::info(
+                            'Checkout payment attempt failed; retry remains available.',
+                            [
+                                'payment_id' => $payment->id,
+                                'payment_intent_id' => $intentId,
+                                'checkout_session_id' =>
+                                    $payment->stripe_checkout_session_id,
+                                'stripe_status' => $object->status ?? null,
+                            ]
+                        );
+                    }
+
+                    // Checkout Session events handle web payment completion
+                    // and expiration. Do not treat one declined card as final.
+                    return;
+                }
+
+                /*
+                 * Mobile PaymentIntent:
+                 * Its ID must match the PaymentIntent stored in our database.
+                 */
+                if ($payment->provider_payment_id !== $intentId) {
+                    Log::warning('PaymentIntent does not match payment.', [
+                        'payment_id' => $payment->id,
+                        'database_intent_id' => $payment->provider_payment_id,
+                        'stripe_intent_id' => $intentId,
+                        'event_type' => $event->type,
+                    ]);
+
+                    return;
+                }
+
+                if ($event->type === 'payment_intent.payment_failed') {
+                    if (($object->status ?? null) === 'requires_payment_method') {
+                        $payment->update([
+                            'status' => PaymentStatus::PENDING,
+                        ]);
+                    }
+
+                    Log::info('Mobile payment attempt failed.', [
+                        'payment_id' => $payment->id,
+                        'payment_intent_id' => $intentId,
+                        'stripe_status' => $object->status ?? null,
+                    ]);
+
+                    return;
+                }
+
+                if ($event->type === 'payment_intent.canceled') {
+                    $wasAbandonedByTimeout =
+                        ($object->cancellation_reason ?? null) === 'abandoned';
+
+                    $payment->update([
+                        'status' => $wasAbandonedByTimeout
+                            ? PaymentStatus::EXPIRED
+                            : PaymentStatus::CANCELLED,
+                    ]);
+
+                    return;
+                }
+
+                if (($object->status ?? null) !== 'succeeded') {
+                    return;
+                }
+
+                $amount = $object->amount_received ?? $object->amount ?? null;
+                $currency = strtolower($object->currency ?? '');
+                $paymentIntentId = $intentId;
+            }
 
                 $expectedAmount = (int) round(
                     (float) $payment->amount * 100

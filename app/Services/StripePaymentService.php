@@ -105,6 +105,55 @@ class StripePaymentService implements PaymentProviderInterface
             'status' => $intent->status,
         ];
     }
+    public function expireCheckoutSessionIfOpen(
+        string $sessionId
+    ): array {
+        $session = $this->stripe->checkout->sessions->retrieve(
+            $sessionId
+        );
+
+        if ($session->status === 'open') {
+            $session = $this->stripe->checkout->sessions->expire(
+                $sessionId
+            );
+        }
+
+        return [
+            'checkout_session_id' => $session->id,
+            'status' => $session->status,
+            'payment_status' => $session->payment_status,
+        ];
+    }
+
+    public function cancelPaymentIntentIfPossible(
+        string $intentId
+    ): array {
+        $intent = $this->stripe->paymentIntents->retrieve(
+            $intentId
+        );
+
+        $cancelableStatuses = [
+            'requires_payment_method',
+            'requires_confirmation',
+            'requires_action',
+            'requires_capture',
+        ];
+
+        if (in_array($intent->status, $cancelableStatuses, true)) {
+            $intent = $this->stripe->paymentIntents->cancel(
+                $intentId,
+                [
+                    'cancellation_reason' => 'abandoned',
+                ]
+            );
+        }
+
+        return [
+            'provider_payment_id' => $intent->id,
+            'status' => $intent->status,
+            'cancellation_reason' => $intent->cancellation_reason,
+        ];
+    }
 
     public function verifyPayment(string $providerPaymentId): bool
     {
