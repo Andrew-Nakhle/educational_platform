@@ -3,7 +3,6 @@
 namespace App\Services;
 
 use App\Contracts\Payment\PaymentProviderInterface;
-use Illuminate\Support\Facades\Log;
 use Stripe\StripeClient;
 
 class StripePaymentService implements PaymentProviderInterface
@@ -12,9 +11,13 @@ class StripePaymentService implements PaymentProviderInterface
 
     public function __construct()
     {
-        $this->stripe = new StripeClient(
-            config('services.stripe.secret')
-        );
+        $secret = config('services.stripe.secret');
+
+        if (! is_string($secret) || $secret === '') {
+            throw new \RuntimeException('Stripe secret is not configured.');
+        }
+
+        $this->stripe = new StripeClient($secret);
     }
 
     public function createPayment(
@@ -22,69 +25,98 @@ class StripePaymentService implements PaymentProviderInterface
         string $currency,
         int $paymentId
     ): array {
+        $frontendUrl = rtrim(
+            config('app.frontend_url', 'http://localhost:5173'),
+            '/'
+        );
+
         $session = $this->stripe->checkout->sessions->create([
             'mode' => 'payment',
-
-            'line_items' => [
-                [
-                    'price_data' => [
-                        'currency' => strtolower($currency),
-
-                        'product_data' => [
-                            'name' => 'Course Payment',
-                        ],
-
-                        'unit_amount' => (int) round($amount * 100),
+            'line_items' => [[
+                'price_data' => [
+                    'currency' => strtolower($currency),
+                    'product_data' => [
+                        'name' => 'Course Payment',
                     ],
-
-                    'quantity' => 1,
+                    'unit_amount' => (int) round($amount * 100),
                 ],
+                'quantity' => 1,
+            ]],
+            'metadata' => [
+                'payment_id' => (string) $paymentId,
             ],
-
             'payment_intent_data' => [
                 'metadata' => [
-                    'payment_id' => $paymentId,
+                    'payment_id' => (string) $paymentId,
                 ],
             ],
-
-            'metadata' => [
-                'payment_id' => $paymentId,
-            ],
-
-            'success_url' => config('app.frontend_url')
+            'success_url' => $frontendUrl
                 . '/payment/success?session_id={CHECKOUT_SESSION_ID}',
-
-            'cancel_url' => config('app.frontend_url')
-                . '/payment/cancel',
-        ]);
-        Log::info('Stripe Checkout created', [
-            'payment_id' => $paymentId,
-            'session_id' => $session->id,
-            'metadata' => $session->metadata->toArray(),
+            'cancel_url' => $frontendUrl . '/payment/cancel',
         ]);
 
         return [
             'checkout_session_id' => $session->id,
-
-//            'provider_payment_id' => $session->payment_intent,
-
             'checkout_url' => $session->url,
         ];
     }
 
-    public function verifyPayment(
-        string $providerPaymentId
-    ): bool {
-        $paymentIntent = $this->stripe->paymentIntents->retrieve(
+    public function createPaymentIntent(
+        float $amount,
+        string $currency,
+        int $paymentId
+    ): array {
+        $intent = $this->stripe->paymentIntents->create([
+            'amount' => (int) round($amount * 100),
+            'currency' => strtolower($currency),
+            'metadata' => [
+                'payment_id' => (string) $paymentId,
+            ],
+            'automatic_payment_methods' => [
+                'enabled' => true,
+            ],
+        ]);
+
+        return [
+            'provider_payment_id' => $intent->id,
+            'client_secret' => $intent->client_secret,
+        ];
+    }
+
+    public function retrieveCheckoutSession(string $sessionId): array
+    {
+        $session = $this->stripe->checkout->sessions->retrieve($sessionId);
+
+        return [
+            'checkout_session_id' => $session->id,
+            'checkout_url' => $session->url,
+            'status' => $session->status,
+            'payment_status' => $session->payment_status,
+        ];
+    }
+
+    public function retrievePaymentIntent(string $intentId): array
+    {
+        $intent = $this->stripe->paymentIntents->retrieve($intentId);
+
+        return [
+            'provider_payment_id' => $intent->id,
+            'client_secret' => $intent->client_secret,
+            'status' => $intent->status,
+        ];
+    }
+
+    public function verifyPayment(string $providerPaymentId): bool
+    {
+        $intent = $this->stripe->paymentIntents->retrieve(
             $providerPaymentId
         );
 
-        return $paymentIntent->status === 'succeeded';
+        return $intent->status === 'succeeded';
     }
 
-    public function refundPayment(
-        string $providerPaymentId
-    ): bool {
+    public function refundPayment(string $providerPaymentId): bool
+    {
         $this->stripe->refunds->create([
             'payment_intent' => $providerPaymentId,
         ]);

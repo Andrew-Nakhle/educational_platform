@@ -2,173 +2,95 @@
 
 namespace App\Http\Controllers;
 
-use App\Enums\Course\CourseStatus;
-use App\Enums\Payment\PaymentProvider;
 use App\Enums\Payment\PaymentStatus;
-use App\Models\Course;
 use App\Models\Payment;
-use App\Services\StripePaymentService;
 use Illuminate\Http\Request;
-use Stripe\Exception\SignatureVerificationException;
-use Stripe\Webhook;
-use UnexpectedValueException;
-
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
-
+use Stripe\Exception\SignatureVerificationException;
+use Stripe\Webhook;
 use Throwable;
+use UnexpectedValueException;
 
 class PaymentController extends Controller
-
 {
-    public function __construct(
-        private StripePaymentService $stripePaymentService
-    ) {}
-
-//    public function createPayment(int $courseId)
-//    {
-//        $student = auth()->user();
-//
-//        $course = Course::find($courseId);
-//
-//        if (! $course) {
-//            return response()->json([
-//                'message' => 'Course not found.',
-//            ], 404);
-//        }
-//
-//        if ($course->status !== CourseStatus::PUBLISHED) {
-//            return response()->json([
-//                'message' => 'This course is not available for purchase.',
-//            ], 422);
-//        }
-//
-//        if ($course->price <= 0) {
-//            return response()->json([
-//                'message' => 'This course is free.',
-//            ], 422);
-//        }
-//
-//        $alreadyEnrolled = $student->enrollments()
-//            ->where('course_id', $course->id)
-//            ->exists();
-//
-//        if ($alreadyEnrolled) {
-//            return response()->json([
-//                'message' => 'You are already enrolled in this course.',
-//            ], 422);
-//        }
-//
-//        $existingPayment = $student->payments()
-//            ->where('course_id', $course->id)
-//            ->whereIn('status', [
-//                PaymentStatus::PENDING,
-//                PaymentStatus::PROCESSING,
-//            ])
-//            ->latest()
-//            ->first();
-//
-//        if ($existingPayment) {
-//            return response()->json([
-//                'message' => 'You already have a pending payment for this course.',
-//                'payment' => $existingPayment,
-//            ], 422);
-//        }
-//
-//        $payment = $student->payments()->create([
-//            'course_id' => $course->id,
-//            'payment_method' => 'card',
-//            'provider' => PaymentProvider::STRIPE,
-//            'amount' => $course->price,
-//            'currency' => 'USD',
-//            'status' => PaymentStatus::PENDING,
-//        ]);
-//
-//        $stripePayment = $this->stripePaymentService->createPayment(
-//            (float) $payment->amount,
-//            $payment->currency,
-//            $payment->id
-//        );
-//
-//        $payment->update([
-//            'provider_payment_id' => $stripePayment['provider_payment_id'],
-//            'stripe_checkout_session_id' => $stripePayment['checkout_session_id'],
-//            'status' => PaymentStatus::PROCESSING,
-//        ]);
-//
-//        return response()->json([
-//            'message' => 'Payment session created successfully.',
-//            'payment_id' => $payment->id,
-//            'checkout_url' => $stripePayment['checkout_url'],
-//        ], 201);
-//    }
-
-
     public function webhook(Request $request)
     {
         try {
             $event = Webhook::constructEvent(
                 $request->getContent(),
-                $request->header('Stripe-Signature'),
+                $request->header('Stripe-Signature', ''),
                 config('services.stripe.webhook_secret')
             );
-        } catch (UnexpectedValueException $e) {
+        } catch (UnexpectedValueException | SignatureVerificationException $e) {
             return response()->json([
-                'message' => 'Invalid payload.',
-            ], 400);
-        } catch (SignatureVerificationException $e) {
-            return response()->json([
-                'message' => 'Invalid signature.',
+                'message' => 'Invalid Stripe webhook.',
             ], 400);
         }
 
-        $session = $event->data->object;
-        Log::info('Stripe webhook received.', [
-            'event_type' => $event->type,
-            'session_id' => $session->id ?? null,
-            'metadata' => $session->metadata->toArray()
-                ?? [],
-            'payment_intent' => $session->payment_intent ?? null,
-        ]);
-        if (! in_array($event->type, [
+        $supportedEvents = [
             'checkout.session.completed',
             'checkout.session.async_payment_succeeded',
             'checkout.session.async_payment_failed',
             'checkout.session.expired',
-        ], true)) {
-            return response()->json([
-                'received' => true,
-            ]);
+            'payment_intent.succeeded',
+            'payment_intent.payment_failed',
+            'payment_intent.canceled',
+        ];
+
+        if (! in_array($event->type, $supportedEvents, true)) {
+            return response()->json(['received' => true]);
         }
 
-        $paymentId = $session->metadata->payment_id ?? null;
+        $object = $event->data->object;
+        $isCheckout = str_starts_with(
+            $event->type,
+            'checkout.session.'
+        );
+
+        $paymentId = $object->metadata->payment_id ?? null;
 
         if (! $paymentId) {
-            Log::warning('Stripe Checkout session has no payment_id metadata.', [
-                'session_id' => $session->id ?? null,
+            Log::warning('Stripe event missing payment_id metadata.', [
+                'event_id' => $event->id,
                 'event_type' => $event->type,
             ]);
 
-            return response()->json([
-                'received' => true,
-            ]);
+            return response()->json(['received' => true]);
         }
 
         try {
-            DB::transaction(function () use ($paymentId, $session, $event) {
+            DB::transaction(function () use (
+                $paymentId,
+                $object,
+                $event,
+                $isCheckout
+            ) {
                 $payment = Payment::query()
                     ->lockForUpdate()
                     ->find($paymentId);
 
                 if (! $payment) {
-                    Log::warning('Payment not found for Stripe event.', [
+                    Log::warning('Stripe payment record not found.', [
                         'payment_id' => $paymentId,
+                        'event_id' => $event->id,
                     ]);
 
                     return;
                 }
 
-                // Never change a successful payment to another status.
+                if (
+                    $payment->provider->value !== 'stripe'
+                    || ! $payment->user_id
+                    || ! $payment->course_id
+                ) {
+                    Log::error('Invalid payment record for Stripe event.', [
+                        'payment_id' => $payment->id,
+                    ]);
+
+                    return;
+                }
+
                 if ($payment->status === PaymentStatus::PAID) {
                     return;
                 }
@@ -180,70 +102,96 @@ class PaymentController extends Controller
                     return;
                 }
 
-                // Handle a failed asynchronous payment.
-                if ($event->type === 'checkout.session.async_payment_failed') {
-                    $payment->update([
-                        'status' => PaymentStatus::FAILED,
-                    ]);
+                if ($isCheckout) {
+                    $sessionId = $object->id ?? null;
 
-                    return;
-                }
+                    if (
+                        ! $sessionId
+                        || $payment->stripe_checkout_session_id !== $sessionId
+                    ) {
+                        Log::warning('Checkout session does not match payment.', [
+                            'payment_id' => $payment->id,
+                        ]);
 
-                // Handle an expired Checkout Session.
-                if ($event->type === 'checkout.session.expired') {
-                    $payment->update([
-                        'status' => PaymentStatus::EXPIRED,
-                    ]);
+                        return;
+                    }
 
-                    return;
-                }
+                    $amount = $object->amount_total ?? null;
+                    $currency = strtolower($object->currency ?? '');
+                    $paymentIntentId = $object->payment_intent ?? null;
 
-                // Do not enroll until Stripe confirms payment.
-                if (($session->payment_status ?? null) !== 'paid') {
-                    return;
+                    if ($event->type === 'checkout.session.expired') {
+                        $payment->update([
+                            'status' => PaymentStatus::EXPIRED,
+                        ]);
+
+                        return;
+                    }
+
+                    if ($event->type === 'checkout.session.async_payment_failed') {
+                        $payment->update([
+                            'status' => PaymentStatus::FAILED,
+                        ]);
+
+                        return;
+                    }
+
+                    if (($object->payment_status ?? null) !== 'paid') {
+                        return;
+                    }
+                } else {
+                    $intentId = $object->id ?? null;
+
+                    if (
+                        ! $intentId
+                        || $payment->provider_payment_id !== $intentId
+                    ) {
+                        Log::warning('PaymentIntent does not match payment.', [
+                            'payment_id' => $payment->id,
+                        ]);
+
+                        return;
+                    }
+
+                    if ($event->type === 'payment_intent.payment_failed') {
+                        $payment->update([
+                            'status' => PaymentStatus::FAILED,
+                        ]);
+
+                        return;
+                    }
+
+                    if ($event->type === 'payment_intent.canceled') {
+                        $payment->update([
+                            'status' => PaymentStatus::CANCELLED,
+                        ]);
+
+                        return;
+                    }
+
+                    if (($object->status ?? null) !== 'succeeded') {
+                        return;
+                    }
+
+                    $amount = $object->amount_received ?? $object->amount ?? null;
+                    $currency = strtolower($object->currency ?? '');
+                    $paymentIntentId = $intentId;
                 }
 
                 $expectedAmount = (int) round(
                     (float) $payment->amount * 100
                 );
 
-                $receivedAmount = $session->amount_total ?? null;
-
                 $expectedCurrency = strtolower($payment->currency);
-                $receivedCurrency = strtolower($session->currency ?? '');
 
                 if (
-                    $receivedAmount === null
-                    || $receivedAmount !== $expectedAmount
-                    || $receivedCurrency !== $expectedCurrency
+                    $amount === null
+                    || (int) $amount !== $expectedAmount
+                    || $currency !== $expectedCurrency
+                    || ! $paymentIntentId
                 ) {
-                    Log::error('Stripe payment amount or currency mismatch.', [
+                    Log::error('Stripe amount or currency mismatch.', [
                         'payment_id' => $payment->id,
-                        'expected_amount' => $expectedAmount,
-                        'received_amount' => $receivedAmount,
-                        'expected_currency' => $expectedCurrency,
-                        'received_currency' => $receivedCurrency,
-                    ]);
-
-                    return;
-                }
-
-                $payment->loadMissing(['user', 'course']);
-
-                if (! $payment->user || ! $payment->course) {
-                    Log::error('Payment is missing its user or course.', [
-                        'payment_id' => $payment->id,
-                    ]);
-
-                    return;
-                }
-
-                $paymentIntentId = $session->payment_intent ?? null;
-
-                if (! $paymentIntentId) {
-                    Log::error('Stripe PaymentIntent ID is missing.', [
-                        'payment_id' => $payment->id,
-                        'session_id' => $session->id ?? null,
                     ]);
 
                     return;
@@ -256,17 +204,13 @@ class PaymentController extends Controller
                 ]);
 
                 $payment->user->enrollments()->firstOrCreate(
-                    [
-                        'course_id' => $payment->course_id,
-                    ],
-                    [
-                        'enrolled_at' => now(),
-                    ]
+                    ['course_id' => $payment->course_id],
+                    ['enrolled_at' => now()]
                 );
             });
         } catch (Throwable $e) {
-            Log::error('Failed to process Stripe webhook.', [
-                'payment_id' => $paymentId,
+            Log::error('Stripe webhook processing failed.', [
+                'event_id' => $event->id,
                 'event_type' => $event->type,
                 'error' => $e->getMessage(),
             ]);
@@ -276,8 +220,6 @@ class PaymentController extends Controller
             ], 500);
         }
 
-        return response()->json([
-            'received' => true,
-        ]);
+        return response()->json(['received' => true]);
     }
 }
