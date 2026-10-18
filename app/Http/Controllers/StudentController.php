@@ -3,18 +3,23 @@
 namespace App\Http\Controllers;
 
 use App\Enums\Course\CourseStatus;
+use App\Enums\Course\VideoStatus;
 use App\Enums\Payment\PaymentProvider;
 use App\Enums\Payment\PaymentStatus;
+use App\Http\Requests\Student\GetCoursesRequest;
 use App\Http\Requests\Student\UpdateStudentProfileRequest;
 use App\Http\Resources\Auth\UserResource;
 use App\Http\Resources\Course\CourseResource;
 use App\Models\Course;
+use App\Models\Lesson;
 use App\Services\StripePaymentService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\DB;
 
 use Illuminate\Support\Facades\Log;
 
+use Illuminate\Support\Facades\Storage;
+use mysql_xdevapi\Collection;
 use Throwable;
 
 
@@ -333,5 +338,108 @@ class StudentController extends Controller{
         return response()->json([
             'courses' => CourseResource::collection($courses),
         ]);
+    }
+
+
+    public function getCourses(GetCoursesRequest $request)
+    {
+        $validated = $request->validated();
+
+        $query = Course::query()
+            ->where('status', CourseStatus::PUBLISHED->value);
+
+        if (! empty($validated['category_id'])) {
+            $query->where(
+                'category_id',
+                $validated['category_id']
+            );
+        }
+
+        if (! empty($validated['search'])) {
+            $search = trim($validated['search']);
+
+            $query->where('title', 'like', "%{$search}%");
+        }
+
+        $courses = $query
+            ->latest()
+            ->paginate(12)
+            ->withQueryString();
+
+        return response()->json([
+            'message' => 'Courses retrieved successfully.',
+            'data' => CourseResource::collection($courses),
+        ]);
+    }
+    //هاد التابع لعرض تفاصيل الكورس يعني بس ابحث عن كورسات وجيب مجموعة واكبس عليه بستدعي هاد التابع لعرض التفاصيل
+    public function showCourse(int $courseId)
+    {
+        $course = Course::query()
+            ->where('status', CourseStatus::PUBLISHED->value)
+            ->with([
+                'category',
+                'instructorProfile',
+                'sections' => function ($query) {
+                    $query->orderBy('sort_order');
+                },
+                'sections.lessons' => function ($query) {
+                    $query->orderBy('sort_order');
+                },
+            ])
+            ->findOrFail($courseId);
+
+        return response()->json([
+            'message' => 'Course details retrieved successfully.',
+            'data' => new CourseResource($course),
+        ]);
+    }
+
+    public function getLessonVideo(int $lessonId)
+    {
+        $student = auth()->user();
+
+        $lesson = Lesson::query()
+            ->with(['section.course', 'video'])
+            ->find($lessonId);
+        if(!$lesson){
+            return response()->json([
+                'message' => 'Lesson not found.',
+            ],404);
+        }
+
+        $course = $lesson->section->course;
+
+        $isEnrolled = $student->enrollments()
+            ->where('course_id', $course->id)
+            ->exists();
+
+        if (! $isEnrolled) {
+            return response()->json([
+                'message' => 'You are not enrolled in this course.',
+            ], 403);
+        }
+
+        $video = $lesson->video;
+
+        if (! $video || $video->status !== VideoStatus::READY) {
+            return response()->json([
+                'message' => 'Video is not available yet.',
+            ], 404);
+        }
+
+        $videoUrl = Storage::disk('b2')->temporaryUrl(
+            $video->playlist_path,
+            now()->addMinutes(30)
+        );
+
+        return response()->json([
+            'message' => 'Video URL retrieved successfully.',
+            'data' => [
+                'lesson_id' => $lesson->id,
+                'title' => $lesson->title,
+                'video_url' => $videoUrl,
+                'expires_in_minutes' => 30,
+            ],
+        ], 200);
     }
 }

@@ -79,5 +79,8 @@ Route::prefix('student')->middleware(['auth:sanctum','role:student','user.status
     Route::put('/profile', [StudentController::class, 'updateProfile']);
     Route::post('/courses/{courseId}/enroll', [StudentController::class, 'enrollCourse']);
     Route::get('/my-courses', [StudentController::class, 'getMyCourses']);
+    Route::get('/courses', [StudentController::class, 'getCourses',]);
+    Route::get('/courses/{courseId}', [StudentController::class, 'showCourse']);
+    Route::get('/lessons/{lessonId}/video', [StudentController::class, 'getLessonVideo']);
 //    Route::post('/courses/{courseId}/payment', [PaymentController::class, 'createPayment']);
 });
