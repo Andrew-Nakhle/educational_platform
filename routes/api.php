@@ -74,6 +74,10 @@ Route::prefix('instructor')->middleware(['auth:sanctum','role:instructor','user.
 
     Route::patch('/courses/{courseId}/restore', [CourseController::class, 'restoreCourse']);
 });
+Route::prefix('student')->group(function () {
+    Route::get('/courses', [StudentController::class, 'getCourses']);
+    Route::get('/courses/{courseId}', [StudentController::class, 'showCourse']);
+});
 //student
 Route::prefix('student')->middleware(['auth:sanctum','role:student','user.status'])->group(function () {
     Route::put('/profile', [StudentController::class, 'updateProfile']);
