@@ -123,6 +123,7 @@ class AuthController extends Controller
                 'phone' => $validated['phone'],
                 'email' => $validated['email'],
                 'password' => Hash::make($validated['password']),
+                'status' => UserStatus::PENDING,
             ]);
 
             // Assign instructor role
@@ -161,7 +162,7 @@ class AuthController extends Controller
             return $user->refresh()->load(['instructorProfile.certificates', 'roles',]);
         });
         return response()->json([
-            'message' => 'Instructor created successfully.',
+            'message' => 'Your instructor registration is pending admin approval.',
             'instructor' => new UserResource($instructor),
         ], 201);
     }
@@ -192,6 +193,11 @@ class AuthController extends Controller
 
             return response()->json([
                 'message' => 'This account no longer exists.',
+            ], 403);
+        }
+        if ($user->status === UserStatus::PENDING) {
+            return response()->json([
+                'message' => 'Your account is pending admin approval.',
             ], 403);
         }
 

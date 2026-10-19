@@ -21,6 +21,7 @@ Route::prefix('student')->group(function () {
 });
 Route::get('/courses/{courseId}/ratings', [ReviewController::class, 'getCourseRating']);
 Route::get('/instructors/{instructorProfileId}/ratings', [ReviewController::class, 'getInstructorRating']);
+Route::get('/categories',[StudentController::class, 'getAllCategories']);
 
 Route::prefix('auth')->group(function () {
     Route::post('login', [AuthController::class, 'login']);
@@ -28,10 +29,11 @@ Route::prefix('auth')->group(function () {
     Route::post('/register', [AuthController::class, 'registerStudent']);
     Route::get('/profile', [AuthController::class, 'profile'])->middleware('auth:sanctum');
     Route::post('/logout', [AuthController::class, 'logout'])->middleware('auth:sanctum');
+    Route::post('/register-instructor', [AuthController::class, 'registerInstructor',]);
 });
 //admin////
 Route::prefix('admin')->middleware(['auth:sanctum','role:admin',])->group(function () {
-    Route::post('/instructors', [AuthController::class, 'registerInstructor']);
+//    Route::post('/instructors', [AuthController::class, 'registerInstructor']);
     Route::get('/users', [AdminController::class, 'getAllUsers']);
     Route::get('/users/{id}', [AdminController::class, 'getUserById']);
     Route::patch('/users/{id}/status', [AdminController::class, 'updateUserStatus']);
@@ -44,6 +46,10 @@ Route::prefix('admin')->middleware(['auth:sanctum','role:admin',])->group(functi
     Route::get('/courses/{courseId}', [AdminController::class, 'getCourseById']);
     Route::patch('/courses/{courseId}/approve', [AdminController::class, 'approveCourse']);
     Route::patch('/courses/{courseId}/reject', [AdminController::class, 'rejectCourse']);
+    Route::get('/instructor-requests', [AdminController::class, 'getInstructorRequests',]);
+    Route::get('/instructor-requests/{userId}', [AdminController::class, 'getInstructorRequest',]);
+    Route::patch('/instructor-requests/{userId}/approve', [AdminController::class, 'approveInstructor',]);
+    Route::patch('/instructor-requests/{userId}/reject', [AdminController::class, 'rejectInstructor',]);
     });
 //instructor/////./
 Route::prefix('instructor')->middleware(['auth:sanctum','role:instructor','user.status'])->group(function () {
@@ -93,5 +99,6 @@ Route::prefix('student')->middleware(['auth:sanctum','role:student','user.status
 //    Route::post('/courses/{courseId}/payment', [PaymentController::class, 'createPayment']);
     Route::post('/courses/{courseId}/rate', [ReviewController::class, 'rateCourse']);
     Route::post('/courses/{courseId}/rate-instructor', [ReviewController::class, 'rateInstructor']);
+
 
 });

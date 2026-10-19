@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Enums\Course\CourseStatus;
+use App\Enums\User\UserStatus;
 use App\Http\Requests\Admin\GetCoursesRequest;
 use App\Http\Requests\Admin\GetUsersRequest;
 use App\Http\Requests\Admin\UpdateUserStatusRequest;
@@ -10,6 +11,7 @@ use App\Http\Resources\Auth\UserResource;
 use App\Http\Resources\Course\CourseResource;
 use App\Models\Course;
 use App\Models\User;
+use Illuminate\Support\Facades\DB;
 
 class AdminController extends Controller
 {
@@ -147,4 +149,88 @@ if (!$course) {
             'status' => $course->status->value,
         ]);
     }
+
+    /////////////////////////
+    ///
+// عرض طلبات الأساتذة بانتظار الموافقة
+    public function getInstructorRequests()
+    {
+        $users = User::query()
+            ->whereHas('roles', fn ($query) =>
+            $query->where('name', 'instructor')
+            )
+            ->where('status', UserStatus::PENDING)
+            ->with(['instructorProfile.certificates', 'roles'])
+            ->latest()
+            ->paginate(15);
+
+        return UserResource::collection($users);
+    }
+
+// عرض تفاصيل طلب أستاذ
+    public function getInstructorRequest(int $userId)
+    {
+        $user = User::query()
+            ->whereHas('roles', fn ($query) =>
+            $query->where('name', 'instructor')
+            )
+            ->where('status', UserStatus::PENDING)
+            ->with(['instructorProfile.certificates', 'roles'])
+            ->findOrFail($userId);
+
+        return response()->json([
+            'data' => new UserResource($user),
+        ]);
+    }
+
+// قبول طلب أستاذ
+    public function approveInstructor(int $userId)
+    {
+        $user = User::query()
+            ->whereHas('roles', fn ($query) =>
+            $query->where('name', 'instructor')
+            )
+            ->where('status', UserStatus::PENDING)
+            ->with(['instructorProfile.certificates', 'roles'])
+            ->findOrFail($userId);
+
+        DB::transaction(function () use ($user) {
+            $user->update([
+                'status' => UserStatus::ACTIVE,
+            ]);
+        });
+
+        return response()->json([
+            'message' => 'Instructor approved successfully.',
+            'instructor' => new UserResource(
+                $user->refresh()->load([
+                    'instructorProfile.certificates',
+                    'roles',
+                ])
+            ),
+        ]);
+    }
+
+// رفض طلب أستاذ
+    public function rejectInstructor(int $userId)
+    {
+        $user = User::query()
+            ->whereHas('roles', fn ($query) =>
+            $query->where('name', 'instructor')
+            )
+            ->where('status', UserStatus::PENDING)
+            ->findOrFail($userId);
+
+        $user->update([
+            'status' => UserStatus::INACTIVE,
+        ]);
+
+        return response()->json([
+            'message' => 'Instructor application rejected successfully.',
+        ]);
+    }
+
+
+
+
 }

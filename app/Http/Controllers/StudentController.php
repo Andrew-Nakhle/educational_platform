@@ -8,8 +8,10 @@ use App\Enums\Payment\PaymentProvider;
 use App\Enums\Payment\PaymentStatus;
 use App\Http\Requests\Student\GetCoursesRequest;
 use App\Http\Requests\Student\UpdateStudentProfileRequest;
+use App\Http\Resources\Admin\CategoryResource;
 use App\Http\Resources\Auth\UserResource;
 use App\Http\Resources\Course\CourseResource;
+use App\Models\Category;
 use App\Models\Course;
 use App\Models\Lesson;
 use App\Services\StripePaymentService;
@@ -441,5 +443,11 @@ class StudentController extends Controller{
                 'expires_in_minutes' => 30,
             ],
         ], 200);
+    }
+    public function getAllCategories()
+    {
+        $categories = Category::all();
+
+        return CategoryResource::collection($categories);
     }
 }

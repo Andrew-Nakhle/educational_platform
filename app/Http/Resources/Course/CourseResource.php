@@ -25,7 +25,7 @@ class CourseResource extends JsonResource
             'thumbnail' => $this->thumbnail
                 ? Storage::disk('b2')->temporaryUrl(
                     $this->thumbnail,
-                    now()->addMinutes(30)
+                    now()->addMinutes(1000)
                 )
                 : null,
             'language' => $this->language,
