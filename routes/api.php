@@ -8,12 +8,19 @@ use App\Http\Controllers\CourseController;
 use App\Http\Controllers\InstructorController;
 use App\Http\Controllers\LessonController;
 use App\Http\Controllers\PaymentController;
+use App\Http\Controllers\ReviewController;
 use App\Http\Controllers\SectionController;
 use App\Http\Controllers\StudentController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
 Route::post('/payments/stripe/webhook', [PaymentController::class, 'webhook']);
+Route::prefix('student')->group(function () {
+    Route::get('/courses', [StudentController::class, 'getCourses']);
+    Route::get('/courses/{courseId}', [StudentController::class, 'showCourse']);
+});
+Route::get('/courses/{courseId}/ratings', [ReviewController::class, 'getCourseRating']);
+Route::get('/instructors/{instructorProfileId}/ratings', [ReviewController::class, 'getInstructorRating']);
 
 Route::prefix('auth')->group(function () {
     Route::post('login', [AuthController::class, 'login']);
@@ -74,17 +81,17 @@ Route::prefix('instructor')->middleware(['auth:sanctum','role:instructor','user.
 
     Route::patch('/courses/{courseId}/restore', [CourseController::class, 'restoreCourse']);
 });
-Route::prefix('student')->group(function () {
-    Route::get('/courses', [StudentController::class, 'getCourses']);
-    Route::get('/courses/{courseId}', [StudentController::class, 'showCourse']);
-});
+
 //student
 Route::prefix('student')->middleware(['auth:sanctum','role:student','user.status'])->group(function () {
     Route::put('/profile', [StudentController::class, 'updateProfile']);
     Route::post('/courses/{courseId}/enroll', [StudentController::class, 'enrollCourse']);
     Route::get('/my-courses', [StudentController::class, 'getMyCourses']);
-    Route::get('/courses', [StudentController::class, 'getCourses',]);
-    Route::get('/courses/{courseId}', [StudentController::class, 'showCourse']);
+//    Route::get('/courses', [StudentController::class, 'getCourses',]);
+//    Route::get('/courses/{courseId}', [StudentController::class, 'showCourse']);
     Route::get('/lessons/{lessonId}/video', [StudentController::class, 'getLessonVideo']);
 //    Route::post('/courses/{courseId}/payment', [PaymentController::class, 'createPayment']);
+    Route::post('/courses/{courseId}/rate', [ReviewController::class, 'rateCourse']);
+    Route::post('/courses/{courseId}/rate-instructor', [ReviewController::class, 'rateInstructor']);
+
 });
