@@ -54,16 +54,22 @@ class StudentController extends Controller{
                 'birthday' => $validated['birthday'],
             ]);
 
+            $profileData = [
+                'first_name' => $validated['first_name'],
+                'father_name' => $validated['father_name'],
+                'last_name' => $validated['last_name'],
+            ];
+
+            // Keep the current avatar unless a new file was uploaded.
+            if (isset($validated['avatar'])) {
+                $profileData['avatar'] = $validated['avatar'];
+            }
+
             $user->studentProfile()->updateOrCreate(
                 [
                     'user_id' => $user->id,
                 ],
-                [
-                    'first_name' => $validated['first_name'],
-                    'father_name' => $validated['father_name'],
-                    'last_name' => $validated['last_name'],
-                    'avatar' => $validated['avatar'] ?? null,
-                ]
+                $profileData
             );
 
             return $user->load([
@@ -72,9 +78,12 @@ class StudentController extends Controller{
             ]);
         });
 
+        $resource = new UserResource($user);
+
         return response()->json([
             'message' => 'Student profile updated successfully.',
-            'user' => new UserResource($user),
+            'user' => $resource,
+            'data' => $resource,
         ]);
     }
 

@@ -48,9 +48,12 @@ class InstructorController extends Controller
             ]);
         });
 
+        $resource = new UserResource($user);
+
         return response()->json([
             'message' => 'Instructor profile updated successfully.',
-            'user' => new UserResource($user),
+            'user' => $resource,
+            'data' => $resource,
         ]);
     }
 

@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Enums\User\UserStatus;
+use App\Http\Requests\Auth\ChangePasswordRequest;
 use App\Http\Requests\Auth\LoginRequest;
 use App\Http\Requests\Auth\RegisterInstructorRequest;
 use App\Http\Requests\Auth\RegisterRequest;
@@ -12,6 +13,7 @@ use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Validation\ValidationException;
 
 class AuthController extends Controller
 {
@@ -221,6 +223,27 @@ class AuthController extends Controller
     {
         $user = auth()->user();
         return response()->json(new UserResource($user));
+    }
+
+    public function changePassword(ChangePasswordRequest $request)
+    {
+        $validated = $request->validated();
+
+        $user = $request->user();
+
+        if (! Hash::check($validated['current_password'], $user->password)) {
+            throw ValidationException::withMessages([
+                'current_password' => ['The current password is incorrect.'],
+            ]);
+        }
+
+        $user->update([
+            'password' => Hash::make($validated['password']),
+        ]);
+
+        return response()->json([
+            'message' => 'Password changed successfully.',
+        ]);
     }
 
 }
