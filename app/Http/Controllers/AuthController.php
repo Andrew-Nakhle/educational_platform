@@ -44,7 +44,7 @@ class AuthController extends Controller
 
         if ($request->hasFile('avatar')) {
             $validated['avatar'] = $request->file('avatar')
-                ->store('students/avatars', 'b2');
+                ->store('students/avatars', config('filesystems.upload_disk'));
         }
         $result = DB::transaction(function () use ($validated, $existingUser) {
 
@@ -134,7 +134,7 @@ class AuthController extends Controller
 
             if ($request->hasFile('avatar')) {
                 $avatarPath = $request->file('avatar')
-                    ->store('instructors/avatars', 'b2');
+                    ->store('instructors/avatars', config('filesystems.upload_disk'));
             }
 
             // Create instructor profile
@@ -151,7 +151,7 @@ class AuthController extends Controller
             foreach ($request->file('certifications', []) as $certificate) {
                 $certificatePath = $certificate->store(
                     'instructors/certificates',
-                    'b2'
+                    config('filesystems.upload_disk')
                 );
 
                 $profile->certificates()->create([

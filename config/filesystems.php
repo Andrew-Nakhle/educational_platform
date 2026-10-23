@@ -17,6 +17,32 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Upload Disk
+    |--------------------------------------------------------------------------
+    |
+    | Disk used for user uploads (avatars, certificates, thumbnails, lesson
+    | source videos and HLS output) and for their signed URLs. Production
+    | uses Backblaze ("b2"); use "local_uploads" for local development.
+    |
+    */
+
+    'upload_disk' => env('UPLOAD_DISK', 'b2'),
+
+    /*
+    |--------------------------------------------------------------------------
+    | Signed Image URL Lifetime
+    |--------------------------------------------------------------------------
+    |
+    | Lifetime in minutes of signed URLs for thumbnails, avatars and
+    | certificates. When null, each resource keeps its built-in default
+    | (30 minutes for avatars/certificates, 1000 minutes for thumbnails).
+    |
+    */
+
+    'signed_url_minutes' => env('SIGNED_URL_MINUTES'),
+
+    /*
+    |--------------------------------------------------------------------------
     | Filesystem Disks
     |--------------------------------------------------------------------------
     |
@@ -59,6 +85,15 @@ return [
             'throw' => false,
             'report' => false,
         ],
+        'local_uploads' => [
+            'driver' => 'local',
+            'root' => storage_path('app/private/uploads'),
+            'url' => rtrim(env('APP_URL', 'http://localhost'), '/').'/uploads',
+            'serve' => true,
+            'throw' => true,
+            'report' => false,
+        ],
+
         'b2' => [
             'driver' => 's3',
             'key' => env('AWS_ACCESS_KEY_ID'),

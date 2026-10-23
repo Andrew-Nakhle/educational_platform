@@ -32,7 +32,7 @@ class InstructorController extends Controller
 
             if ($request->hasFile('avatar')) {
                 $profileData['avatar'] = $request->file('avatar')
-                    ->store('instructors/avatars', 'b2');
+                    ->store('instructors/avatars', config('filesystems.upload_disk'));
             }
 
             $user->instructorProfile()->updateOrCreate(

@@ -51,7 +51,7 @@ class LessonController extends Controller
 
             $sourcePath = $request->file('video')->store(
                 'lessons/source',
-                'b2'
+                config('filesystems.upload_disk')
             );
 
             $lessonVideo = $lesson->video()->create([
@@ -263,7 +263,7 @@ class LessonController extends Controller
 
         if ($lessonVideo) {
 
-            $disk = Storage::disk('b2');
+            $disk = Storage::disk(config('filesystems.upload_disk'));
 
             /*
              * Delete original source video

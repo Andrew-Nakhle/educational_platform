@@ -23,7 +23,7 @@ class CourseResource extends JsonResource
             'price' => $this->price,
 
             'thumbnail' => $this->thumbnail
-                ? Storage::disk('b2')->temporaryUrl(
+                ? Storage::disk(config('filesystems.upload_disk'))->temporaryUrl(
                     $this->thumbnail,
                     now()->addMinutes(1000)
                 )

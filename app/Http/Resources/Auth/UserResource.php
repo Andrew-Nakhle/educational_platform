@@ -33,7 +33,7 @@ class UserResource extends JsonResource
                 'father_name' => $this->studentProfile->father_name,
                 'last_name' => $this->studentProfile->last_name,
                 'avatar' => $this->studentProfile->avatar
-                    ? Storage::disk('b2')->temporaryUrl(
+                    ? Storage::disk(config('filesystems.upload_disk'))->temporaryUrl(
                         $this->studentProfile->avatar,
                         now()->addMinutes(30)
                     )
@@ -51,7 +51,7 @@ class UserResource extends JsonResource
                 'last_name' => $this->instructorProfile->last_name,
 //استعملت انا هون temporaryUrl لان عندي ال bucket تبع backbaze هو private وعطيتو مدة صلاحية 30 دقيقة
                 'avatar' => $this->instructorProfile->avatar
-                    ? Storage::disk('b2')->temporaryUrl(
+                    ? Storage::disk(config('filesystems.upload_disk'))->temporaryUrl(
                         $this->instructorProfile->avatar,
                         now()->addMinutes(30)
                     )
@@ -67,7 +67,7 @@ class UserResource extends JsonResource
                             'id' => $certificate->id,
 
                             'certification' => $certificate->certification
-                                ? Storage::disk('b2')->temporaryUrl(
+                                ? Storage::disk(config('filesystems.upload_disk'))->temporaryUrl(
                                     $certificate->certification,
                                     now()->addMinutes(30)
                                 )
