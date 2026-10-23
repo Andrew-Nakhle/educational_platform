@@ -258,7 +258,8 @@ class StudentController extends Controller{
                 $stripePayment = $this->stripePaymentService->createPayment(
                     (float) $payment->amount,
                     $payment->currency,
-                    $payment->id
+                    $payment->id,
+                    $payment->course_id
                 );
 
                 if (
