@@ -81,7 +81,7 @@ class LessonController extends Controller
         if (!$lessonVideo) {
             return response()->json([
                 'message' => 'Lesson video not found.',
-            ]);
+            ], 404);
         }
         $instructorProfile = request()->user()->instructorProfile;
 
@@ -121,7 +121,7 @@ class LessonController extends Controller
         if (!$section){
             return response()->json([
                 'message' => 'Section not found.',
-            ]);
+            ], 404);
         }
 
         $instructorProfile = request()->user()->instructorProfile;
@@ -150,7 +150,7 @@ class LessonController extends Controller
         if (!$lesson) {
             return response()->json([
                 'message' => 'Lesson not found.',
-            ]);
+            ], 404);
         }
 
         $instructorProfile = request()->user()->instructorProfile;
@@ -179,7 +179,7 @@ class LessonController extends Controller
         if (!$lesson) {
             return response()->json([
                 'message' => 'Lesson not found.',
-            ]);
+            ], 404);
         }
 
         $instructorProfile = $request->user()->instructorProfile;

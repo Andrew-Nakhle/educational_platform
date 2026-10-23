@@ -82,7 +82,7 @@ class CourseController extends Controller
         if(!$course){
             return response()->json([
                 'message' => 'Course not found.',
-            ]);
+            ], 404);
         }
         if ($instructor->id != $course->instructorProfile->id) {
             return response()->json([
@@ -252,7 +252,7 @@ class CourseController extends Controller
 if (! $course) {
     return response()->json([
         'message' => 'Course not found.',
-    ]);
+    ], 404);
 }
         $instructorProfile = request()->user()->instructorProfile;
 

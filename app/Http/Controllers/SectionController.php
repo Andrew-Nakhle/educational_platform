@@ -101,7 +101,7 @@ class SectionController extends Controller
 
         $section =Section::with('course')->find($sectionId);
 
-        if (!$section) {return response()->json(['message' => 'Section not found.',]);}
+        if (!$section) {return response()->json(['message' => 'Section not found.',], 404);}
         $instructorProfile = $request->user()->instructorProfile;
 
         if ($section->course->instructor_profile_id !== $instructorProfile->id) {

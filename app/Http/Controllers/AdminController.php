@@ -106,7 +106,7 @@ class AdminController extends Controller
 if (!$course) {
     return response()->json([
         'message' => 'Course not found',
-    ]);
+    ], 404);
 }
 
         if ($course->status !== CourseStatus::PENDING_PUBLISH) {
@@ -131,7 +131,7 @@ if (!$course) {
         if (!$course) {
             return response()->json([
                 'message' => 'Course not found',
-            ]);
+            ], 404);
         }
 
         if ($course->status !== CourseStatus::PENDING_PUBLISH) {
