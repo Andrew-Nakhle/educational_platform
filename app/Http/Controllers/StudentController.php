@@ -332,18 +332,37 @@ class StudentController extends Controller{
 
 
 
-            public function getMyCourses()
+            public function getMyCourses(Request $request)
     {
         $student = auth()->user();
 
         $enrollments = $student->enrollments()
+            ->whereHas('course')
             ->with('course')
             ->get();
 
-        $courses = $enrollments->pluck('course');
+        $progress = $this->courseProgressService->forCourses(
+            $student,
+            $enrollments->pluck('course_id')->all()
+        );
+
+        $courses = $enrollments->map(function ($enrollment) use ($progress, $request) {
+            $courseProgress = $progress[$enrollment->course_id];
+
+            return array_merge(
+                (new CourseResource($enrollment->course))->resolve($request),
+                [
+                    'enrolled_at' => $enrollment->enrolled_at?->toISOString(),
+                    'last_lesson_id' => $courseProgress['last_lesson_id'],
+                    'progress' => $courseProgress['progress'],
+                ]
+            );
+        })->values();
 
         return response()->json([
-            'courses' => CourseResource::collection($courses),
+            'message' => 'Enrolled courses retrieved successfully.',
+            'courses' => $courses,
+            'data' => $courses,
         ]);
     }
 

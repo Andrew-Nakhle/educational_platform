@@ -7,6 +7,7 @@ use App\Http\Controllers\CourseController;
 
 use App\Http\Controllers\InstructorController;
 use App\Http\Controllers\LessonController;
+use App\Http\Controllers\LessonProgressController;
 use App\Http\Controllers\PaymentController;
 use App\Http\Controllers\ReviewController;
 use App\Http\Controllers\SectionController;
@@ -96,6 +97,8 @@ Route::prefix('student')->middleware(['auth:sanctum','role:student','user.status
 //    Route::get('/courses', [StudentController::class, 'getCourses',]);
 //    Route::get('/courses/{courseId}', [StudentController::class, 'showCourse']);
     Route::get('/lessons/{lessonId}/video', [StudentController::class, 'getLessonVideo']);
+    Route::post('/lessons/{lessonId}/complete', [LessonProgressController::class, 'complete']);
+    Route::delete('/lessons/{lessonId}/complete', [LessonProgressController::class, 'uncomplete']);
 //    Route::post('/courses/{courseId}/payment', [PaymentController::class, 'createPayment']);
     Route::post('/courses/{courseId}/rate', [ReviewController::class, 'rateCourse']);
     Route::post('/courses/{courseId}/rate-instructor', [ReviewController::class, 'rateInstructor']);
