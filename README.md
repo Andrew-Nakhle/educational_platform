@@ -7,6 +7,86 @@
 <a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/l/laravel/framework" alt="License"></a>
 </p>
 
+## Local development on Windows
+
+Requirements: PHP 8.3+ (with the `pdo_sqlite`, `fileinfo` and `gd` extensions enabled in `php.ini`) and Composer. Run the commands below in PowerShell from the project root.
+
+1. Install dependencies:
+
+    ```powershell
+    composer install
+    ```
+
+2. Create the environment file and application key:
+
+    ```powershell
+    Copy-Item .env.example .env
+    php artisan key:generate
+    ```
+
+    The example is set up for local development: SQLite, `UPLOAD_DISK=local_uploads` (files are stored in `storage/app/private/uploads` instead of Backblaze B2) and `QUEUE_CONNECTION=sync`.
+
+3. Create the SQLite database, run the migrations and seed roles and demo users:
+
+    ```powershell
+    New-Item database\database.sqlite -ItemType File
+    php artisan migrate
+    php artisan db:seed
+    ```
+
+4. Start the API at `http://localhost:8000` (all endpoints are under `/api`):
+
+    ```powershell
+    php artisan serve
+    ```
+
+5. Optional: payment expiry. Unpaid Stripe payments are expired by a scheduled command; run the scheduler in another terminal:
+
+    ```powershell
+    php artisan schedule:work
+    ```
+
+### Lesson videos (optional)
+
+Uploaded lesson videos are converted to HLS with ffmpeg by the `ProcessLessonVideo` job.
+
+1. Download an ffmpeg build for Windows (for example from https://www.gyan.dev/ffmpeg/builds/), extract it, and point `.env` at the binaries using forward slashes:
+
+    ```dotenv
+    FFMPEG_PATH=C:/ffmpeg/bin/ffmpeg.exe
+    FFPROBE_PATH=C:/ffmpeg/bin/ffprobe.exe
+    ```
+
+2. With `QUEUE_CONNECTION=sync` the video is processed during the upload request. To process in the background instead, set `QUEUE_CONNECTION=database` and run a worker:
+
+    ```powershell
+    php artisan queue:work
+    ```
+
+### Stripe payments (optional)
+
+Paid enrollment (`POST /api/student/courses/{id}/enroll`) needs Stripe test keys.
+
+1. Set `STRIPE_SECRET` to your test secret key (`sk_test_...`) in `.env`. `StudentController` cannot be resolved without it, so the student and catalog endpoints return 500 until it is set to some value.
+2. Install the [Stripe CLI](https://docs.stripe.com/stripe-cli), log in and forward webhooks to the API:
+
+    ```powershell
+    stripe login
+    stripe listen --forward-to localhost:8000/api/payments/stripe/webhook
+    ```
+
+3. Copy the `whsec_...` signing secret that `stripe listen` prints into `STRIPE_WEBHOOK_SECRET`, then run `php artisan config:clear`.
+
+Checkout redirects go to `FRONTEND_URL` (default `http://localhost:5173`).
+
+### Tests
+
+```powershell
+php artisan test
+```
+
+Tests use in-memory SQLite, the `sync` queue and a faked `local_uploads` disk, so they need no external services.
+
 ## About Laravel
 
 Laravel is a web application framework with expressive, elegant syntax. We believe development must be an enjoyable and creative experience to be truly fulfilling. Laravel takes the pain out of development by easing common tasks used in many web projects, such as:
