@@ -29,6 +29,9 @@
         <env name="MAIL_MAILER" value="array"/>
         <env name="QUEUE_CONNECTION" value="sync"/>
         <env name="SESSION_DRIVER" value="array"/>
+        <env name="UPLOAD_DISK" value="local_uploads"/>
+        <env name="STRIPE_SECRET" value="sk_test_placeholder"/>
+        <env name="STRIPE_WEBHOOK_SECRET" value="whsec_placeholder"/>
         <env name="PULSE_ENABLED" value="false"/>
         <env name="TELESCOPE_ENABLED" value="false"/>
         <env name="NIGHTWATCH_ENABLED" value="false"/>
