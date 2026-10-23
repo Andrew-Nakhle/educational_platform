@@ -10,6 +10,7 @@ use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
 use App\Http\Requests\StoreCourseReviewRequest;
 use App\Http\Requests\StoreInstructorReviewRequest;
+use App\Http\Resources\Review\ReviewResource;
 
 class ReviewController extends Controller
 {
@@ -40,24 +41,23 @@ class ReviewController extends Controller
             ], 403);
         }
 
+        // One rating per student per course: a second rating updates it.
         $review = CourseReview::firstOrNew([
             'user_id' => $request->user()->id,
             'course_id' => $course->id,
         ]);
 
-        if ($review->exists) {
-            return response()->json([
-                'message' => 'You have already rated this course.',
-            ], 409);
-        }
+        $isUpdate = $review->exists;
 
         $review->fill($data);
         $review->save();
 
         return response()->json([
-            'message' => 'Course rated successfully.',
+            'message' => $isUpdate
+                ? 'Course rating updated successfully.'
+                : 'Course rated successfully.',
             'data' => $review,
-        ], 201);
+        ], $isUpdate ? 200 : 201);
     }
 
     // متوسط تقييمات كورس وعددها
@@ -80,7 +80,33 @@ class ReviewController extends Controller
                 2
             ),
             'ratings_count' => (clone $reviews)->count(),
+            ...$this->ratingsPayload($reviews, 'Course ratings retrieved successfully.'),
         ]);
+    }
+
+    /**
+     * `message` and `data` keys shared by the course and instructor
+     * ratings endpoints (added next to the original keys).
+     */
+    private function ratingsPayload($reviews, string $message): array
+    {
+        $count = (clone $reviews)->count();
+        $average = (clone $reviews)->avg('rating');
+
+        return [
+            'message' => $message,
+            'data' => [
+                'average' => $count > 0 ? round((float) $average, 2) : null,
+                'count' => $count,
+                'ratings' => ReviewResource::collection(
+                    (clone $reviews)
+                        ->with('user.studentProfile')
+                        ->latest()
+                        ->latest('id')
+                        ->get()
+                ),
+            ],
+        ];
     }
 
     // تقييم أستاذ من خلال كورس مسجل فيه الطالب
@@ -119,24 +145,23 @@ class ReviewController extends Controller
             ], 404);
         }
 
+        // One rating per student per instructor: a second rating updates it.
         $review = InstructorReview::firstOrNew([
             'user_id' => $request->user()->id,
             'instructor_profile_id' => $instructor->id,
         ]);
 
-        if ($review->exists) {
-            return response()->json([
-                'message' => 'You have already rated this instructor.',
-            ], 409);
-        }
+        $isUpdate = $review->exists;
 
         $review->fill($data);
         $review->save();
 
         return response()->json([
-            'message' => 'Instructor rated successfully.',
+            'message' => $isUpdate
+                ? 'Instructor rating updated successfully.'
+                : 'Instructor rated successfully.',
             'data' => $review,
-        ], 201);
+        ], $isUpdate ? 200 : 201);
     }
 
     // متوسط تقييمات أستاذ وعددها
@@ -160,6 +185,7 @@ class ReviewController extends Controller
                 2
             ),
             'ratings_count' => (clone $reviews)->count(),
+            ...$this->ratingsPayload($reviews, 'Instructor ratings retrieved successfully.'),
         ]);
     }
 }
