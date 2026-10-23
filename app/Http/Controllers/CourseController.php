@@ -31,7 +31,7 @@ class CourseController extends Controller
             $instructorProfile = $request->user()->instructorProfile;
 
             $thumbnailPath = $request->file('thumbnail')
-                ->store('courses/thumbnails', 'b2');
+                ->store('courses/thumbnails', config('filesystems.upload_disk'));
 
             return $instructorProfile->courses()->create([
                 'category_id' => $validated['category_id'],
@@ -131,7 +131,7 @@ class CourseController extends Controller
         if ($request->hasFile('thumbnail')) {
 
             $newThumbnail = $request->file('thumbnail')
-                ->store('courses/thumbnails', 'b2');
+                ->store('courses/thumbnails', config('filesystems.upload_disk'));
 
             $validated['thumbnail'] = $newThumbnail;
         }

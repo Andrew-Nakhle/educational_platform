@@ -38,7 +38,7 @@ class StudentController extends Controller{
 
         if ($request->hasFile('avatar')) {
             $validated['avatar'] = $request->file('avatar')
-                ->store('students/avatars', 'b2');
+                ->store('students/avatars', config('filesystems.upload_disk'));
         }
         $user = DB::transaction(function () use ($request, $validated) {
 
@@ -429,7 +429,7 @@ class StudentController extends Controller{
             ], 404);
         }
 
-        $videoUrl = Storage::disk('b2')->temporaryUrl(
+        $videoUrl = Storage::disk(config('filesystems.upload_disk'))->temporaryUrl(
             $video->playlist_path,
             now()->addMinutes(30)
         );

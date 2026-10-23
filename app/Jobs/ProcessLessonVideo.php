@@ -62,7 +62,7 @@ class ProcessLessonVideo implements ShouldQueue
                 'lesson_video_id' => $lessonVideo->id,
             ]);
 
-            $sourceStream = Storage::disk('b2')->readStream(
+            $sourceStream = Storage::disk(config('filesystems.upload_disk'))->readStream(
                 $lessonVideo->source_path
             );
 
@@ -404,7 +404,7 @@ class ProcessLessonVideo implements ShouldQueue
 
             $stream = fopen($localPath, 'rb');
 
-            Storage::disk('b2')->put(
+            Storage::disk(config('filesystems.upload_disk'))->put(
                 $b2Path,
                 $stream
             );

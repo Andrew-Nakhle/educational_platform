@@ -10,9 +10,20 @@ class B2StorageService
         string $path,
         bool $isDirectory = false
     ): void {
-        $disk = Storage::disk('b2');
+        $diskName = config('filesystems.upload_disk');
+        $disk = Storage::disk($diskName);
+
+        // Non-S3 disks (e.g. local_uploads) have no object versions.
+        if (config("filesystems.disks.{$diskName}.driver") !== 's3') {
+            $isDirectory
+                ? $disk->deleteDirectory($path)
+                : $disk->delete($path);
+
+            return;
+        }
+
         $client = $disk->getClient();
-        $bucket = config('filesystems.disks.b2.bucket');
+        $bucket = config("filesystems.disks.{$diskName}.bucket");
 
         $keyMarker = null;
         $versionIdMarker = null;

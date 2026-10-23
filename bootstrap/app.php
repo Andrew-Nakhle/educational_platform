@@ -20,6 +20,12 @@ return Application::configure(basePath: dirname(__DIR__))
             'role_or_permission' => \Spatie\Permission\Middleware\RoleOrPermissionMiddleware::class,
             'user.status' => CheckUserStatus::class,
         ]);
+
+        // API guests get a JSON 401 instead of a redirect to the
+        // (non-existent) login route, even without an Accept header.
+        $middleware->redirectGuestsTo(
+            fn (Request $request) => $request->is('api/*') ? null : route('login')
+        );
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         $exceptions->shouldRenderJsonWhen(
