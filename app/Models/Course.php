@@ -27,6 +27,7 @@ class Course extends Model
         'status' => CourseStatus::class,
         'duration_seconds' => 'integer',
         'language' => Language::class,
+        'price' => 'decimal:2',
 
     ];
     public function instructorProfile()
@@ -49,5 +50,15 @@ class Course extends Model
     public function payments()
     {
         return $this->hasMany(Payment::class);
+    }
+
+    public function reviews()
+    {
+        return $this->hasMany(CourseReview::class);
+    }
+
+    public function lessons()
+    {
+        return $this->hasManyThrough(Lesson::class, Section::class);
     }
 }
