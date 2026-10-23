@@ -14,8 +14,11 @@ use App\Http\Resources\Course\CourseResource;
 use App\Models\Category;
 use App\Models\Course;
 use App\Models\Lesson;
+use App\Services\CourseProgressService;
 use App\Services\StripePaymentService;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
 use Illuminate\Support\Facades\Log;
@@ -29,7 +32,8 @@ use Throwable;
 class StudentController extends Controller{
 
     public function __construct(
-        private StripePaymentService $stripePaymentService
+        private StripePaymentService $stripePaymentService,
+        private CourseProgressService $courseProgressService
     ){}
     public function updateProfile(
         UpdateStudentProfileRequest $request
@@ -351,6 +355,8 @@ class StudentController extends Controller{
         $query = Course::query()
             ->where('status', CourseStatus::PUBLISHED->value);
 
+        $this->withCatalogAttributes($query, $request);
+
         if (! empty($validated['category_id'])) {
             $query->where(
                 'category_id',
@@ -375,10 +381,14 @@ class StudentController extends Controller{
         ]);
     }
     //هاد التابع لعرض تفاصيل الكورس يعني بس ابحث عن كورسات وجيب مجموعة واكبس عليه بستدعي هاد التابع لعرض التفاصيل
-    public function showCourse(int $courseId)
+    public function showCourse(Request $request, int $courseId)
     {
-        $course = Course::query()
-            ->where('status', CourseStatus::PUBLISHED->value)
+        $query = Course::query()
+            ->where('status', CourseStatus::PUBLISHED->value);
+
+        $this->withCatalogAttributes($query, $request);
+
+        $course = $query
             ->with([
                 'category',
                 'instructorProfile',
@@ -391,10 +401,39 @@ class StudentController extends Controller{
             ])
             ->findOrFail($courseId);
 
+        $completedLessonIds = $course->is_enrolled
+            ? $this->courseProgressService->completedLessonIds(
+                $request->user('sanctum'),
+                $course->id
+            )
+            : null;
+
         return response()->json([
             'message' => 'Course details retrieved successfully.',
-            'data' => new CourseResource($course),
+            'data' => (new CourseResource($course))
+                ->withCompletedLessonIds($completedLessonIds),
         ]);
+    }
+
+    /**
+     * Ratings for the course list/details, plus `is_enrolled` for the
+     * optional Sanctum token (no token, or not a student: false).
+     */
+    private function withCatalogAttributes(Builder $query, Request $request): void
+    {
+        $user = $request->user('sanctum');
+
+        $studentId = $user && $user->hasRole('student')
+            ? $user->id
+            : 0;
+
+        $query
+            ->withCount('reviews')
+            ->withAvg('reviews', 'rating')
+            ->withExists([
+                'enrollments as is_enrolled' => fn ($enrollments) =>
+                    $enrollments->where('user_id', $studentId),
+            ]);
     }
 
     public function getLessonVideo(int $lessonId)

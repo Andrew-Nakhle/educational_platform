@@ -9,6 +9,21 @@ use Illuminate\Support\Facades\Storage;
 class CourseResource extends JsonResource
 {
     /**
+     * Lesson IDs the current student has completed. When set (enrolled
+     * student), every lesson in the details gets a `completed` flag.
+     *
+     * @var array<int, int>|null
+     */
+    protected ?array $completedLessonIds = null;
+
+    public function withCompletedLessonIds(?array $lessonIds): static
+    {
+        $this->completedLessonIds = $lessonIds;
+
+        return $this;
+    }
+
+    /**
      * Transform the resource into an array.
      *
      * @return array<string, mixed>
@@ -54,6 +69,15 @@ class CourseResource extends JsonResource
             ],
             'duration_hours' => $this->duration_hours,
 
+            'rating_average' => $this->ratingAverage(),
+            'ratings_count' => $this->ratingsCount(),
+
+            // Only set by the student/public endpoints (withExists).
+            'is_enrolled' => $this->when(
+                array_key_exists('is_enrolled', $this->resource->getAttributes()),
+                fn () => (bool) $this->resource->is_enrolled
+            ),
+
             'sections' => $this->whenLoaded('sections', function () {
                 return $this->sections->map(function ($section) {
                     return [
@@ -63,18 +87,51 @@ class CourseResource extends JsonResource
                         'sort_order' => $section->sort_order,
 
                         'lessons' => $section->lessons->map(function ($lesson) {
-                            return [
+                            $data = [
                                 'id' => $lesson->id,
                                 'title' => $lesson->title,
                                 'description' => $lesson->description,
                                 'duration_seconds' => $lesson->duration_seconds,
                                 'sort_order' => $lesson->sort_order,
                             ];
+
+                            if ($this->completedLessonIds !== null) {
+                                $data['completed'] = in_array(
+                                    $lesson->id,
+                                    $this->completedLessonIds,
+                                    true
+                                );
+                            }
+
+                            // Admin/instructor details load the video.
+                            if ($lesson->relationLoaded('video')) {
+                                $data['video_status'] = $lesson->video?->status?->value;
+                            }
+
+                            return $data;
                         })->values(),
                     ];
                 })->values();
             }),
 
         ];
+    }
+
+    private function ratingsCount(): int
+    {
+        if (array_key_exists('reviews_count', $this->resource->getAttributes())) {
+            return (int) $this->resource->reviews_count;
+        }
+
+        return $this->resource->reviews()->count();
+    }
+
+    private function ratingAverage(): ?float
+    {
+        $average = array_key_exists('reviews_avg_rating', $this->resource->getAttributes())
+            ? $this->resource->reviews_avg_rating
+            : $this->resource->reviews()->avg('rating');
+
+        return $average === null ? null : round((float) $average, 2);
     }
 }
