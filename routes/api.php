@@ -11,6 +11,7 @@ use App\Http\Controllers\LessonProgressController;
 use App\Http\Controllers\PaymentController;
 use App\Http\Controllers\ReviewController;
 use App\Http\Controllers\SectionController;
+use App\Http\Controllers\StatsController;
 use App\Http\Controllers\StudentController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
@@ -23,6 +24,7 @@ Route::prefix('student')->group(function () {
 Route::get('/courses/{courseId}/ratings', [ReviewController::class, 'getCourseRating']);
 Route::get('/instructors/{instructorProfileId}/ratings', [ReviewController::class, 'getInstructorRating']);
 Route::get('/categories',[StudentController::class, 'getAllCategories']);
+Route::get('/stats', [StatsController::class, 'index']);
 
 Route::prefix('auth')->group(function () {
     Route::post('login', [AuthController::class, 'login']);
