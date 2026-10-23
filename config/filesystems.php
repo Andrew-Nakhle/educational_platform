@@ -39,7 +39,7 @@ return [
     |
     */
 
-    'signed_url_minutes' => env('SIGNED_URL_MINUTES'),
+    'signed_url_minutes' => env('SIGNED_URL_MINUTES') ?: null,
 
     /*
     |--------------------------------------------------------------------------
