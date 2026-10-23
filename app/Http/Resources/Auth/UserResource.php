@@ -35,7 +35,9 @@ class UserResource extends JsonResource
                 'avatar' => $this->studentProfile->avatar
                     ? Storage::disk(config('filesystems.upload_disk'))->temporaryUrl(
                         $this->studentProfile->avatar,
-                        now()->addMinutes(30)
+                        now()->addMinutes(
+                            (int) (config('filesystems.signed_url_minutes') ?? 30)
+                        )
                     )
                     : null,
             ];
@@ -53,7 +55,9 @@ class UserResource extends JsonResource
                 'avatar' => $this->instructorProfile->avatar
                     ? Storage::disk(config('filesystems.upload_disk'))->temporaryUrl(
                         $this->instructorProfile->avatar,
-                        now()->addMinutes(30)
+                        now()->addMinutes(
+                            (int) (config('filesystems.signed_url_minutes') ?? 30)
+                        )
                     )
                     : null,
 
@@ -69,7 +73,9 @@ class UserResource extends JsonResource
                             'certification' => $certificate->certification
                                 ? Storage::disk(config('filesystems.upload_disk'))->temporaryUrl(
                                     $certificate->certification,
-                                    now()->addMinutes(30)
+                                    now()->addMinutes(
+                                        (int) (config('filesystems.signed_url_minutes') ?? 30)
+                                    )
                                 )
                                 : null,
                         ];
