@@ -16,11 +16,7 @@ class ReviewController extends Controller
     // تقييم كورس
     public function rateCourse(StoreCourseReviewRequest $request, int $courseId)
     {
-        $data = $request->validate([
-            'rating' => ['required', 'integer', 'between:1,5'],
-            'comment' => ['nullable', 'string', 'max:2000'],
-        ]);
-
+        $data = $request->validated();
         $course = Course::find($courseId);
         if (! $course) {
             return response()->json([
@@ -40,19 +36,21 @@ class ReviewController extends Controller
             ], 403);
         }
 
-        $review = CourseReview::firstOrNew([
-            'user_id' => $request->user()->id,
-            'course_id' => $course->id,
-        ]);
+        $exists = CourseReview::where('user_id', $request->user()->id)
+            ->where('course_id', $course->id)
+            ->exists();
 
-        if ($review->exists) {
+        if ($exists) {
             return response()->json([
                 'message' => 'You have already rated this course.',
             ], 409);
         }
 
-        $review->fill($data);
-        $review->save();
+        $review = CourseReview::create([
+            'user_id' => $request->user()->id,
+            'course_id' => $course->id,
+            ...$data,
+        ]);
 
         return response()->json([
             'message' => 'Course rated successfully.',
@@ -86,10 +84,7 @@ class ReviewController extends Controller
     // تقييم أستاذ من خلال كورس مسجل فيه الطالب
     public function rateInstructor(StoreInstructorReviewRequest $request, int $courseId)
     {
-        $data = $request->validate([
-            'rating' => ['required', 'integer', 'between:1,5'],
-            'comment' => ['nullable', 'string', 'max:2000'],
-        ]);
+        $data = $request->validated();
 
         $course = Course::with('instructorProfile')
             ->find($courseId);
@@ -119,19 +114,25 @@ class ReviewController extends Controller
             ], 404);
         }
 
-        $review = InstructorReview::firstOrNew([
-            'user_id' => $request->user()->id,
-            'instructor_profile_id' => $instructor->id,
-        ]);
+        $exists = InstructorReview::where(
+            'user_id',
+            $request->user()->id
+        )
+            ->where('instructor_profile_id', $instructor->id)
+            ->exists();
 
-        if ($review->exists) {
+        if ($exists) {
             return response()->json([
                 'message' => 'You have already rated this instructor.',
             ], 409);
         }
 
-        $review->fill($data);
-        $review->save();
+        $review = InstructorReview::create([
+            'user_id' => $request->user()->id,
+            'instructor_profile_id' => $instructor->id,
+            ...$data,
+        ]);
+
 
         return response()->json([
             'message' => 'Instructor rated successfully.',

@@ -58,7 +58,7 @@ class LessonController extends Controller
                 'source_path' => $sourcePath,
                 'playlist_path' => null,
                 'duration_seconds' => 0,
-                'status' => 'processing',
+                'status' => VideoStatus::PROCESSING,
             ]);
 
             ProcessLessonVideo::dispatch($lessonVideo->id)->afterCommit();
