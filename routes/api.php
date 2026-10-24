@@ -99,6 +99,9 @@ Route::prefix('student')->middleware(['auth:sanctum','role:student','user.status
 //    Route::post('/courses/{courseId}/payment', [PaymentController::class, 'createPayment']);
     Route::post('/courses/{courseId}/rate', [ReviewController::class, 'rateCourse']);
     Route::post('/courses/{courseId}/rate-instructor', [ReviewController::class, 'rateInstructor']);
+    Route::post('/lessons/{lessonId}/complete', [StudentController::class, 'completeLesson']);
+
+    Route::delete('/lessons/{lessonId}/complete', [StudentController::class, 'uncompleteLesson']);
 
 
 });
