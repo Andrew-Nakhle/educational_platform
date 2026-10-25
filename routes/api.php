@@ -13,6 +13,7 @@ use App\Http\Controllers\ReviewController;
 use App\Http\Controllers\SectionController;
 use App\Http\Controllers\StatsController;
 use App\Http\Controllers\StudentController;
+use App\Http\Controllers\TeachingMajorController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\Mail;
@@ -26,6 +27,7 @@ Route::get('/courses/{courseId}/ratings', [ReviewController::class, 'getCourseRa
 Route::get('/instructors/{instructorProfileId}/ratings', [ReviewController::class, 'getInstructorRating']);
 Route::get('/categories',[StudentController::class, 'getAllCategories']);
 Route::get('/stats', [StatsController::class, 'index']);
+Route::get('/teaching-majors', [TeachingMajorController::class, 'index']);
 Route::post('/contact', [ContactMessageController::class, 'store'])->middleware('throttle:5,1');
 
 Route::prefix('auth')->group(function () {
@@ -47,6 +49,7 @@ Route::prefix('admin')->middleware(['auth:sanctum','role:admin',])->group(functi
     Route::get('/contact-messages', [ContactMessageController::class, 'index']);
     Route::patch('/contact-messages/{id}/read', [ContactMessageController::class, 'markAsRead']);
     Route::get('/users', [AdminController::class, 'getAllUsers']);
+    Route::get('/payments', [AdminController::class, 'getAllPayments']);
     Route::get('/users/{id}', [AdminController::class, 'getUserById']);
     Route::patch('/users/{id}/status', [AdminController::class, 'updateUserStatus']);
     Route::post('/categories', [CategoryController::class, 'createCategory']);

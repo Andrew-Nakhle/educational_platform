@@ -5,12 +5,15 @@ namespace App\Http\Controllers;
 use App\Enums\Course\CourseStatus;
 use App\Enums\User\UserStatus;
 use App\Http\Requests\Admin\GetCoursesRequest;
+use App\Http\Requests\Admin\GetPaymentsRequest;
 use App\Http\Requests\Admin\GetUsersRequest;
 use App\Http\Requests\Admin\RejectRequest;
 use App\Http\Requests\Admin\UpdateUserStatusRequest;
+use App\Http\Resources\Admin\PaymentResource;
 use App\Http\Resources\Auth\UserResource;
 use App\Http\Resources\Course\CourseResource;
 use App\Models\Course;
+use App\Models\Payment;
 use App\Models\User;
 use Illuminate\Support\Facades\DB;
 
@@ -37,7 +40,40 @@ class AdminController extends Controller
             $query->where('status', $validated['status']);
         }
 
+        // With ?page= the response is the paginated {data, links, meta};
+        // without it, the plain list as before.
+        if ($request->has('page')) {
+            return UserResource::collection(
+                $query->latest()
+                    ->latest('id')
+                    ->paginate((int) ($validated['per_page'] ?? 15))
+                    ->withQueryString()
+            );
+        }
+
         return UserResource::collection(
+            $query->get()
+        );
+    }
+
+    // GET /admin/payments, newest first; ?page= for {data, links, meta}.
+    public function getAllPayments(GetPaymentsRequest $request)
+    {
+        $validated = $request->validated();
+
+        $query = Payment::with([
+            'user.studentProfile',
+            'course',
+        ])->latest()->latest('id');
+
+        if ($request->has('page')) {
+            return PaymentResource::collection(
+                $query->paginate((int) ($validated['per_page'] ?? 15))
+                    ->withQueryString()
+            );
+        }
+
+        return PaymentResource::collection(
             $query->get()
         );
     }
@@ -116,7 +152,7 @@ class AdminController extends Controller
         ])->withCount('enrollments')->findOrFail($courseId);
 
         return response()->json([
-            'course' => new CourseResource($course),
+            'course' => (new CourseResource($course))->withRejectReason(),
         ]);
     }
 

@@ -13,6 +13,7 @@ use App\Http\Resources\Auth\UserResource;
 use App\Http\Resources\Course\CourseResource;
 use App\Models\Category;
 use App\Models\Course;
+use App\Models\CourseReview;
 use App\Models\Lesson;
 use App\Services\CourseProgressService;
 use App\Models\LessonProgress;
@@ -361,7 +362,13 @@ class StudentController extends Controller{
             $enrollments->pluck('course_id')->all()
         );
 
-        $courses = $enrollments->map(function ($enrollment) use ($progress, $request) {
+        // The student's own course rating (1-5) per course, or null.
+        $myRatings = CourseReview::query()
+            ->where('user_id', $student->id)
+            ->whereIn('course_id', $enrollments->pluck('course_id'))
+            ->pluck('rating', 'course_id');
+
+        $courses = $enrollments->map(function ($enrollment) use ($progress, $request, $myRatings) {
             $courseProgress = $progress[$enrollment->course_id];
 
             return array_merge(
@@ -370,6 +377,9 @@ class StudentController extends Controller{
                     'enrolled_at' => $enrollment->enrolled_at?->toISOString(),
                     'last_lesson_id' => $courseProgress['last_lesson_id'],
                     'progress' => $courseProgress['progress'],
+                    'my_rating' => isset($myRatings[$enrollment->course_id])
+                        ? (int) $myRatings[$enrollment->course_id]
+                        : null,
                 ]
             );
         })->values();

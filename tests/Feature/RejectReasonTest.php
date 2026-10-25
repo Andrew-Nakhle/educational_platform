@@ -19,7 +19,7 @@ class RejectReasonTest extends TestCase
         $this->setUpTestData();
     }
 
-    public function test_course_reject_reason_is_stored_and_shown_to_the_owner_only(): void
+    public function test_course_reject_reason_is_stored_and_shown_to_the_owner_and_in_admin_details(): void
     {
         $instructor = $this->makeInstructor();
         $course = $this->makeCourse($instructor, ['status' => CourseStatus::PENDING_PUBLISH]);
@@ -34,8 +34,9 @@ class RejectReasonTest extends TestCase
 
         $this->assertSame('Audio is too quiet.', $course->fresh()->reject_reason);
 
-        // Admin and public course objects do not get the key.
-        $this->getJson("/api/admin/courses/{$course->id}")->assertJsonMissingPath('course.reject_reason');
+        // Admin course details include it; the admin list does not.
+        $this->getJson("/api/admin/courses/{$course->id}")
+            ->assertJsonPath('course.reject_reason', 'Audio is too quiet.');
         $this->getJson('/api/admin/courses')->assertJsonMissingPath('courses.0.reject_reason');
 
         $this->actingAs($instructor, 'sanctum');
