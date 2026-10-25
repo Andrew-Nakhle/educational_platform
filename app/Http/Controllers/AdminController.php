@@ -41,7 +41,7 @@ class AdminController extends Controller
         );
     }
     public function getUserById($UserId){
-        $user=User::with(['studentProfile','instructorProfile','instructorProfile.certificates'])->find($UserId);
+        $user=User::with(['studentProfile','instructorProfile','instructorProfile.certificates'])->findOrFail($UserId);
         return response()->json(new UserResource($user));
     }
 

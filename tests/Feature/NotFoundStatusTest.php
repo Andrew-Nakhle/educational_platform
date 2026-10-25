@@ -66,4 +66,37 @@ class NotFoundStatusTest extends TestCase
             ->assertNotFound()
             ->assertExactJson(['message' => 'Section not found.']);
     }
+
+    public function test_find_or_fail_lookups_return_the_same_404_json(): void
+    {
+        $this->actingAs($this->makeAdmin(), 'sanctum');
+
+        foreach ([
+            ['get', '/api/admin/users/999', 'User not found.'],
+            ['get', '/api/admin/courses/999', 'Course not found.'],
+            ['get', '/api/admin/instructor-requests/999', 'User not found.'],
+            ['patch', '/api/admin/instructor-requests/999/approve', 'User not found.'],
+            ['patch', '/api/admin/instructor-requests/999/reject', 'User not found.'],
+        ] as [$method, $uri, $message]) {
+            $this->json($method, $uri)
+                ->assertNotFound()
+                ->assertExactJson(['message' => $message]);
+        }
+
+        $this->actingAs($this->makeInstructor(), 'sanctum');
+
+        foreach ([
+            ['delete', '/api/instructor/courses/999', 'Course not found.'],
+            ['delete', '/api/instructor/sections/999', 'Section not found.'],
+            ['delete', '/api/instructor/lessons/999', 'Lesson not found.'],
+        ] as [$method, $uri, $message]) {
+            $this->json($method, $uri)
+                ->assertNotFound()
+                ->assertExactJson(['message' => $message]);
+        }
+
+        $this->getJson('/api/student/courses/999')
+            ->assertNotFound()
+            ->assertExactJson(['message' => 'Course not found.']);
+    }
 }
