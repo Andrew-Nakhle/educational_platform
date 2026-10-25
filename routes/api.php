@@ -3,6 +3,7 @@
 use App\Http\Controllers\AdminController;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\CategoryController;
+use App\Http\Controllers\ContactMessageController;
 use App\Http\Controllers\CourseController;
 
 use App\Http\Controllers\InstructorController;
@@ -25,6 +26,7 @@ Route::get('/courses/{courseId}/ratings', [ReviewController::class, 'getCourseRa
 Route::get('/instructors/{instructorProfileId}/ratings', [ReviewController::class, 'getInstructorRating']);
 Route::get('/categories',[StudentController::class, 'getAllCategories']);
 Route::get('/stats', [StatsController::class, 'index']);
+Route::post('/contact', [ContactMessageController::class, 'store'])->middleware('throttle:5,1');
 
 Route::prefix('auth')->group(function () {
     Route::post('login', [AuthController::class, 'login']);
@@ -42,6 +44,8 @@ Route::prefix('auth')->group(function () {
 Route::prefix('admin')->middleware(['auth:sanctum','role:admin',])->group(function () {
 //    Route::post('/instructors', [AuthController::class, 'registerInstructor']);
     Route::get('/stats', [StatsController::class, 'admin']);
+    Route::get('/contact-messages', [ContactMessageController::class, 'index']);
+    Route::patch('/contact-messages/{id}/read', [ContactMessageController::class, 'markAsRead']);
     Route::get('/users', [AdminController::class, 'getAllUsers']);
     Route::get('/users/{id}', [AdminController::class, 'getUserById']);
     Route::patch('/users/{id}/status', [AdminController::class, 'updateUserStatus']);
@@ -75,6 +79,8 @@ Route::prefix('instructor')->middleware(['auth:sanctum','role:instructor','user.
     Route::put('/lessons/{lessonId}', [LessonController::class, 'updateLesson']);
     Route::delete('/lessons/{lessonId}', [LessonController::class, 'deleteLesson']);
 
+    Route::patch('/courses/{courseId}/sections/reorder', [SectionController::class, 'reorderSections']);
+    Route::patch('/sections/{sectionId}/lessons/reorder', [LessonController::class, 'reorderLessons']);
     Route::get('/courses/{courseId}/sections', [SectionController::class, 'getSections']);//بحيب كل السكشن تبع الكورس
 
     Route::get('/sections/{sectionId}', [SectionController::class, 'getSectionById']);

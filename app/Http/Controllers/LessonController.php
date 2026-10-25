@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Enums\Course\VideoStatus;
+use App\Http\Requests\Instructor\ReorderRequest;
 use App\Http\Requests\Instructor\StoreLessonRequest;
 use App\Http\Requests\Instructor\UpdateLessonRequest;
 use App\Http\Resources\Course\LessonResource;
@@ -300,5 +301,31 @@ class LessonController extends Controller
         ]);
     }
 
+    // PATCH /instructor/sections/{sectionId}/lessons/reorder { ids: [...] }
+    public function reorderLessons(ReorderRequest $request, int $sectionId)
+    {
+        $section = Section::with(['course', 'lessons'])->find($sectionId);
 
+        if (! $section) {
+            return response()->json([
+                'message' => 'Section not found.',
+            ], 404);
+        }
+
+        if ((int) $section->course?->instructor_profile_id !== (int) $request->user()->instructorProfile?->id) {
+            return response()->json([
+                'message' => 'You are not authorized to reorder these lessons.',
+            ], 403);
+        }
+
+        $this->applySortOrder(
+            $section->lessons,
+            $request->validated()['ids'],
+            'The ids must list every lesson of this section exactly once.'
+        );
+
+        return response()->json([
+            'message' => 'Lessons reordered successfully.',
+        ]);
+    }
 }

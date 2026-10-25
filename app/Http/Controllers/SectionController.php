@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Requests\Instructor\ReorderRequest;
 use App\Http\Requests\Instructor\StoreSectionRequest;
 use App\Http\Requests\Instructor\UpdateSectionRequest;
 use App\Models\Course;
@@ -292,6 +293,34 @@ class SectionController extends Controller
 
         return response()->json([
             'message' => 'Section deleted successfully.',
+        ]);
+    }
+
+    // PATCH /instructor/courses/{courseId}/sections/reorder { ids: [...] }
+    public function reorderSections(ReorderRequest $request, int $courseId)
+    {
+        $course = Course::with('sections')->find($courseId);
+
+        if (! $course) {
+            return response()->json([
+                'message' => 'Course not found.',
+            ], 404);
+        }
+
+        if ((int) $course->instructor_profile_id !== (int) $request->user()->instructorProfile?->id) {
+            return response()->json([
+                'message' => 'You are not authorized to reorder these sections.',
+            ], 403);
+        }
+
+        $this->applySortOrder(
+            $course->sections,
+            $request->validated()['ids'],
+            'The ids must list every section of this course exactly once.'
+        );
+
+        return response()->json([
+            'message' => 'Sections reordered successfully.',
         ]);
     }
 }
