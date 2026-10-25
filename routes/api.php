@@ -41,6 +41,7 @@ Route::prefix('auth')->group(function () {
 //admin////
 Route::prefix('admin')->middleware(['auth:sanctum','role:admin',])->group(function () {
 //    Route::post('/instructors', [AuthController::class, 'registerInstructor']);
+    Route::get('/stats', [StatsController::class, 'admin']);
     Route::get('/users', [AdminController::class, 'getAllUsers']);
     Route::get('/users/{id}', [AdminController::class, 'getUserById']);
     Route::patch('/users/{id}/status', [AdminController::class, 'updateUserStatus']);
@@ -106,6 +107,8 @@ Route::prefix('student')->middleware(['auth:sanctum','role:student','user.status
 //    Route::post('/courses/{courseId}/payment', [PaymentController::class, 'createPayment']);
     Route::post('/courses/{courseId}/rate', [ReviewController::class, 'rateCourse']);
     Route::post('/courses/{courseId}/rate-instructor', [ReviewController::class, 'rateInstructor']);
+    Route::put('/courses/{courseId}/rate', [ReviewController::class, 'updateCourseRating']);
+    Route::put('/courses/{courseId}/rate-instructor', [ReviewController::class, 'updateInstructorRating']);
     Route::post('/lessons/{lessonId}/complete', [StudentController::class, 'completeLesson']);
     Route::delete('/lessons/{lessonId}/complete', [StudentController::class, 'uncompleteLesson']);
 
