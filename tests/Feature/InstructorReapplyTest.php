@@ -159,7 +159,7 @@ class InstructorReapplyTest extends TestCase
 
     public function test_new_instructor_registration_is_unchanged(): void
     {
-        // An avatar is sent because instructor_profiles.avatar is NOT NULL (pre-existing).
+        // With an avatar here; InstructorAvatarOptionalTest covers sign-up without one.
         $this->post('/api/auth/register-instructor', $this->payload([
             'email' => 'fresh@example.test',
             'avatar' => UploadedFile::fake()->image('avatar.png'),
