@@ -82,6 +82,13 @@ use `POST` with a `_method=PUT` field.
 62. [List payments (admin), paginated](#example-62-list-payments) `GET /api/admin/payments`
 63. [Course by id with reject_reason (admin)](#example-63-course-by-id-with-reject-reason) `GET /api/admin/courses/3`
 64. [My courses, with my_rating](#example-64-my-courses-with-my-rating) `GET /api/student/my-courses`
+65. [Register as instructor without an avatar (avatar is optional)](#example-65-register-as-instructor-without-an-avatar) `POST /api/auth/register-instructor`
+66. [Reject an instructor application without a reason (admin; the default reason is stored)](#example-66-reject-an-instructor-application-without-a-reason) `PATCH /api/admin/instructor-requests/6/reject`
+67. [Login (instructor rejected without a reason: reject_reason is "Rejected by admin")](#example-67-login) `POST /api/auth/login`
+68. [Re-apply after a rejection without a reason (same email; back to pending)](#example-68-re-apply-after-a-rejection-without-a-reason) `POST /api/auth/register-instructor`
+69. [Deactivate an instructor account (admin; no reject_reason)](#example-69-deactivate-an-instructor-account) `PATCH /api/admin/users/2/status`
+70. [Register as instructor with the email of a deactivated account (422)](#example-70-register-as-instructor-with-the-email-of-a-deactivated-account) `POST /api/auth/register-instructor`
+71. [Search users by name or email (admin; combines with role, status and pages)](#example-71-search-users-by-name-or-email) `GET /api/admin/users`
 
 <a id="example-1-login"></a>
 ## 1. Login (admin)
@@ -2997,5 +3004,314 @@ Response `200`:
             "my_rating": 4
         }
     ]
+}
+```
+
+<a id="example-65-register-as-instructor-without-an-avatar"></a>
+## 65. Register as instructor without an avatar (avatar is optional)
+
+`POST /api/auth/register-instructor`
+
+- Auth: none
+- Body (multipart/form-data):
+
+```json
+{
+    "first_name": "Hadi",
+    "father_name": "Karim",
+    "last_name": "Mansour",
+    "gender": "male",
+    "birthday": "1990-01-01",
+    "phone": "0900000010",
+    "email": "hadi@example.test",
+    "password": "another-password",
+    "password_confirmation": "another-password",
+    "teaching_major": "physics"
+}
+```
+
+Response `201`:
+
+```json
+{
+    "message": "Your instructor registration is pending admin approval.",
+    "instructor": {
+        "id": 6,
+        "phone": "0900000010",
+        "email": "hadi@example.test",
+        "gender": "male",
+        "age": 36,
+        "role": "instructor",
+        "status": "pending",
+        "reject_reason": null,
+        "profile": {
+            "type": "instructor",
+            "id": 3,
+            "first_name": "Hadi",
+            "father_name": "Karim",
+            "last_name": "Mansour",
+            "avatar": null,
+            "teaching_major": "physics",
+            "bio": null,
+            "certifications": []
+        }
+    }
+}
+```
+
+<a id="example-66-reject-an-instructor-application-without-a-reason"></a>
+## 66. Reject an instructor application without a reason (admin; the default reason is stored)
+
+`PATCH /api/admin/instructor-requests/6/reject`
+
+- Auth: `Authorization: Bearer <token>`
+
+Response `200`:
+
+```json
+{
+    "message": "Instructor application rejected successfully."
+}
+```
+
+<a id="example-67-login"></a>
+## 67. Login (instructor rejected without a reason: reject_reason is "Rejected by admin")
+
+`POST /api/auth/login`
+
+- Auth: none
+- Body (JSON):
+
+```json
+{
+    "email": "hadi@example.test",
+    "password": "another-password"
+}
+```
+
+Response `200`:
+
+```json
+{
+    "message": "Login successful.",
+    "user": {
+        "id": 6,
+        "phone": "0900000010",
+        "email": "hadi@example.test",
+        "gender": "male",
+        "age": 36,
+        "role": "instructor",
+        "status": "inactive",
+        "reject_reason": "Rejected by admin",
+        "profile": {
+            "type": "instructor",
+            "id": 3,
+            "first_name": "Hadi",
+            "father_name": "Karim",
+            "last_name": "Mansour",
+            "avatar": null,
+            "teaching_major": "physics",
+            "bio": null,
+            "certifications": []
+        }
+    },
+    "token": "<token>"
+}
+```
+
+<a id="example-68-re-apply-after-a-rejection-without-a-reason"></a>
+## 68. Re-apply after a rejection without a reason (same email; back to pending)
+
+`POST /api/auth/register-instructor`
+
+- Auth: none
+- Body (multipart/form-data):
+
+```json
+{
+    "first_name": "Hadi",
+    "father_name": "Karim",
+    "last_name": "Mansour",
+    "gender": "male",
+    "birthday": "1990-01-01",
+    "phone": "0900000010",
+    "email": "hadi@example.test",
+    "password": "another-password",
+    "password_confirmation": "another-password",
+    "teaching_major": "physics",
+    "bio": "Physics teacher, re-applying with certificates."
+}
+```
+
+Response `201`:
+
+```json
+{
+    "message": "Your instructor registration is pending admin approval.",
+    "instructor": {
+        "id": 6,
+        "phone": "0900000010",
+        "email": "hadi@example.test",
+        "gender": "male",
+        "age": 36,
+        "role": "instructor",
+        "status": "pending",
+        "reject_reason": null,
+        "profile": {
+            "type": "instructor",
+            "id": 3,
+            "first_name": "Hadi",
+            "father_name": "Karim",
+            "last_name": "Mansour",
+            "avatar": null,
+            "teaching_major": "physics",
+            "bio": "Physics teacher, re-applying with certificates.",
+            "certifications": []
+        }
+    }
+}
+```
+
+<a id="example-69-deactivate-an-instructor-account"></a>
+## 69. Deactivate an instructor account (admin; no reject_reason)
+
+`PATCH /api/admin/users/2/status`
+
+- Auth: `Authorization: Bearer <token>`
+- Body (JSON):
+
+```json
+{
+    "status": "inactive"
+}
+```
+
+Response `200`:
+
+```json
+{
+    "id": 2,
+    "phone": "0933444555",
+    "email": "instructor@example.test",
+    "gender": "male",
+    "age": 38,
+    "role": "instructor",
+    "status": "inactive",
+    "reject_reason": null,
+    "profile": {
+        "type": "instructor",
+        "id": 1,
+        "first_name": "Omar",
+        "father_name": "Tarek",
+        "last_name": "Saeed",
+        "avatar": "https://api.example.test/instructors/avatars/example14xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx.png?expiration=1792837800",
+        "teaching_major": "software_engineering",
+        "bio": "Backend developer and teacher.",
+        "certifications": []
+    }
+}
+```
+
+<a id="example-70-register-as-instructor-with-the-email-of-a-deactivated-account"></a>
+## 70. Register as instructor with the email of a deactivated account (422)
+
+`POST /api/auth/register-instructor`
+
+- Auth: none
+- Body (multipart/form-data):
+
+```json
+{
+    "first_name": "Hadi",
+    "father_name": "Karim",
+    "last_name": "Mansour",
+    "gender": "male",
+    "birthday": "1990-01-01",
+    "phone": "0900000011",
+    "email": "instructor@example.test",
+    "password": "another-password",
+    "password_confirmation": "another-password",
+    "teaching_major": "physics"
+}
+```
+
+Response `422`:
+
+```json
+{
+    "message": "The email has already been taken.",
+    "errors": {
+        "email": [
+            "The email has already been taken."
+        ]
+    }
+}
+```
+
+<a id="example-71-search-users-by-name-or-email"></a>
+## 71. Search users by name or email (admin; combines with role, status and pages)
+
+`GET /api/admin/users?search=SALEH&role=student&page=1&per_page=5`
+
+- Auth: `Authorization: Bearer <token>`
+
+Response `200`:
+
+```json
+{
+    "data": [
+        {
+            "id": 4,
+            "phone": "0900000004",
+            "email": "student2@example.test",
+            "gender": "male",
+            "age": 31,
+            "role": "student",
+            "status": "inactive",
+            "profile": {
+                "type": "student",
+                "id": 2,
+                "first_name": "Rami",
+                "father_name": "Fadi",
+                "last_name": "Saleh",
+                "avatar": null
+            }
+        }
+    ],
+    "links": {
+        "first": "https://api.example.test/api/admin/users?search=SALEH&role=student&per_page=5&page=1",
+        "last": "https://api.example.test/api/admin/users?search=SALEH&role=student&per_page=5&page=1",
+        "prev": null,
+        "next": null
+    },
+    "meta": {
+        "current_page": 1,
+        "from": 1,
+        "last_page": 1,
+        "links": [
+            {
+                "url": null,
+                "label": "&laquo; Previous",
+                "page": null,
+                "active": false
+            },
+            {
+                "url": "https://api.example.test/api/admin/users?search=SALEH&role=student&per_page=5&page=1",
+                "label": "1",
+                "page": 1,
+                "active": true
+            },
+            {
+                "url": null,
+                "label": "Next &raquo;",
+                "page": null,
+                "active": false
+            }
+        ],
+        "path": "https://api.example.test/api/admin/users",
+        "per_page": 5,
+        "to": 1,
+        "total": 1
+    }
 }
 ```

@@ -565,6 +565,76 @@ class ApiExamplesTest extends TestCase
         $this->record('My courses, with my_rating', 'GET', '/api/student/my-courses', token: $tokens['student'])
             ->assertOk();
 
+        // --- Instructor sign-up without an avatar; rejection without a reason ---------------------
+        $noAvatar = [
+            'first_name' => 'Hadi',
+            'father_name' => 'Karim',
+            'last_name' => 'Mansour',
+            'gender' => 'male',
+            'birthday' => '1990-01-01',
+            'phone' => '0900000010',
+            'email' => 'hadi@example.test',
+            'password' => 'another-password',
+            'password_confirmation' => 'another-password',
+            'teaching_major' => 'physics',
+        ];
+
+        $this->record(
+            'Register as instructor without an avatar (avatar is optional)',
+            'POST',
+            '/api/auth/register-instructor',
+            $noAvatar,
+            multipart: true
+        )->assertCreated();
+
+        $hadi = User::where('email', 'hadi@example.test')->firstOrFail();
+
+        $this->record(
+            'Reject an instructor application without a reason (admin; the default reason is stored)',
+            'PATCH',
+            "/api/admin/instructor-requests/{$hadi->id}/reject",
+            token: $tokens['admin']
+        )->assertOk();
+
+        $this->record(
+            'Login (instructor rejected without a reason: reject_reason is "Rejected by admin")',
+            'POST',
+            '/api/auth/login',
+            ['email' => 'hadi@example.test', 'password' => 'another-password']
+        )->assertOk();
+
+        $this->record(
+            'Re-apply after a rejection without a reason (same email; back to pending)',
+            'POST',
+            '/api/auth/register-instructor',
+            array_merge($noAvatar, ['bio' => 'Physics teacher, re-applying with certificates.']),
+            multipart: true
+        )->assertCreated();
+
+        $this->record(
+            'Deactivate an instructor account (admin; no reject_reason)',
+            'PATCH',
+            "/api/admin/users/{$instructor->id}/status",
+            ['status' => 'inactive'],
+            $tokens['admin']
+        )->assertOk();
+
+        $this->record(
+            'Register as instructor with the email of a deactivated account (422)',
+            'POST',
+            '/api/auth/register-instructor',
+            array_merge($noAvatar, ['email' => $instructor->email, 'phone' => '0900000011']),
+            multipart: true
+        )->assertStatus(422);
+
+        // --- Admin users search ----------------------------------------------------------------
+        $this->record(
+            'Search users by name or email (admin; combines with role, status and pages)',
+            'GET',
+            '/api/admin/users?search=SALEH&role=student&page=1&per_page=5',
+            token: $tokens['admin']
+        )->assertOk();
+
         if (getenv('API_EXAMPLES')) {
             $this->writeMarkdown(base_path('docs/API-EXAMPLES.md'));
         }

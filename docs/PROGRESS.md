@@ -9,6 +9,7 @@
 | `feature/mvp-endpoints-1` | `feature/local-dev-setup` | Synced with upstream, pushed to `origin` |
 | `feature/mvp-endpoints-2` | `feature/mvp-endpoints-1` | Pagination, reject reasons, contact form, reorder; pushed to `origin` |
 | `feature/mvp-endpoints-3` | `feature/mvp-endpoints-2` | Status rules, upload limits, replace video, instructor re-apply, teaching majors, admin payments/users lists, `my_rating`; pushed to `origin` |
+| `feature/mvp-endpoints-4` | `feature/mvp-endpoints-3` | Instructor sign-up without an avatar, default reason for a reason-less rejection, `?search=` on admin users; pushed to `origin` |
 
 Run the tests with `php artisan test` (in-memory SQLite, faked upload disk, faked
 Stripe HTTP client; no external services). Real request/response examples are in
@@ -306,17 +307,52 @@ validation runs.
   - Any other existing email: 422 `errors.email` `The email has already been taken.` (was a 500).
   - A phone that belongs to another user: 422 `errors.phone` (was a 500).
 
+## feature/mvp-endpoints-4
+
+Additive: no URL, method or existing key was changed or removed. One new migration (22).
+
+### Instructor sign-up without an avatar
+
+- `instructor_profiles.avatar` is now nullable (migration 22, Laravel's native `->nullable()->change()`,
+  no doctrine/dbal; works on SQLite, MySQL and PostgreSQL). `POST /api/auth/register-instructor`
+  without `avatar` → 201 with `instructor.profile.avatar: null` (it was a 500).
+- Every response that shows the instructor's avatar already returns `null` for a missing one
+  (`null` or `''`): course objects (`instructor.avatar`), login / profile, admin users,
+  instructor requests and admin course details. Tests cover each.
+- `down()` turns `NULL` avatars into `''` before making the column NOT NULL again.
+
+### Rejecting an instructor without a reason
+
+- `PATCH /api/admin/instructor-requests/{id}/reject` without a `reason` (missing, `null`, empty or
+  blank) now stores `"Rejected by admin"` (`InstructorProfile::DEFAULT_REJECT_REASON`). A given
+  reason is stored as before. The response is unchanged.
+- So every rejected application has a `reject_reason` and can re-apply with the same email,
+  exactly like one rejected with a reason (201, back to `pending`, reason cleared).
+- An account the admin only set to `inactive` (`PATCH /api/admin/users/{id}/status`) has no
+  `reject_reason`: signing up with its email is still 422 `The email has already been taken.`
+- Course rejections are unchanged (`reject_reason` stays `null` without a reason).
+- Instructors rejected without a reason **before** this change still have `reject_reason = null`
+  and can't re-apply. To let them, an admin can set the reason once (a one-off data fix such
+  as `UPDATE instructor_profiles SET reject_reason = 'Rejected by admin' WHERE …` for the known
+  rejected applicants); the backend can't tell them apart from deactivated accounts.
+
+### `GET /api/admin/users?search=`
+
+- Optional, string, ≤ 100 characters (422 otherwise). Empty or blank → ignored.
+- Every word must match the email or a name part (first, father or last name of the student or
+  instructor profile), case-insensitively (`LOWER(…) LIKE`, so PostgreSQL too). `%` and `_` in
+  the input are matched literally.
+- Combines with `role`, `status`, `page` and `per_page`; the pagination links keep `search`.
+  Without `search` the response is exactly as before.
+
 ## Open points
 
 - **Restore** always returns a course to `draft`, not to the status before
   archiving. A published course has to be resubmitted and approved again. Going back to the
   previous status needs a new column (e.g. `status_before_archive`).
-- An instructor rejected **without** a reason can't re-apply: `reject_reason` is the only thing
-  that tells a rejected application apart from an account the admin set to `inactive`. Making
-  the reason required, or storing a separate flag, would fix it.
-- `instructor_profiles.avatar` is NOT NULL, but `register-instructor` accepts no avatar, so a
-  first registration without an avatar is still a 500. Needs a migration making the column
-  nullable (not done here).
+- ~~An instructor rejected **without** a reason can't re-apply~~: fixed in mvp-endpoints-4 (default
+  reason). Applicants rejected without a reason before that still need a one-off data fix (see above).
+- ~~`instructor_profiles.avatar` is NOT NULL~~: nullable since mvp-endpoints-4 (migration 22).
 - `CheckUserStatus` blocks `inactive` users only; the `blocked` check is commented
   out, so a blocked user who still has a token can keep using the API.
 - `duration_hours` in course responses is always `null` (no such column; the
@@ -327,8 +363,9 @@ validation runs.
 ## Migrations (in order)
 
 The ratings `PUT` endpoints, `my_rating`, admin stats and 404 handling need no new
-migration. `feature/mvp-endpoints-2` adds 20 and 21; `feature/mvp-endpoints-3` adds none. Both are additive: two nullable
-columns and one new table. They have only been run in the test database, not
+migration. `feature/mvp-endpoints-2` adds 20 and 21; `feature/mvp-endpoints-3` adds none;
+`feature/mvp-endpoints-4` adds 22. All are additive: two nullable columns, one new table, and one
+column made nullable. They have only been run in the test database, not
 against any shared or production database. The list below matches `database/migrations/`.
 
 1. `0001_01_01_000000_create_users_table`
@@ -354,3 +391,5 @@ against any shared or production database. The list below matches `database/migr
     nullable `reject_reason` varchar(500) on `courses` and `instructor_profiles`)
 21. `2026_10_26_100100_create_contact_messages_table` (mvp-endpoints-2; `name`, `email`,
     `message`, nullable `read_at`, timestamps)
+22. `2026_10_27_100000_make_instructor_profiles_avatar_nullable` (mvp-endpoints-4;
+    `instructor_profiles.avatar` nullable; `down()` stores `''` for missing avatars first)
