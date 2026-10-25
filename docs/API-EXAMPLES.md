@@ -231,6 +231,8 @@ Response `201`:
         "difficulty_level": "medium",
         "what_you_will_learn": "HTTP tests, factories and fakes.",
         "status": "draft",
+        "duration_hours": null,
+        "is_enrolled": false,
         "category": {
             "id": 1,
             "name": "Programming"
@@ -241,7 +243,6 @@ Response `201`:
             "father_name": "Samir",
             "last_name": "Nasser"
         },
-        "duration_hours": null,
         "rating_average": null,
         "ratings_count": 0
     }
@@ -270,6 +271,8 @@ Response `200`:
             "difficulty_level": "easy",
             "what_you_will_learn": "Routing, Eloquent and testing.",
             "status": "published",
+            "duration_hours": null,
+            "is_enrolled": false,
             "category": {
                 "id": 1,
                 "name": "Programming"
@@ -280,7 +283,6 @@ Response `200`:
                 "father_name": "Samir",
                 "last_name": "Nasser"
             },
-            "duration_hours": null,
             "rating_average": null,
             "ratings_count": 0
         },
@@ -294,6 +296,8 @@ Response `200`:
             "difficulty_level": "hard",
             "what_you_will_learn": "Routing, Eloquent and testing.",
             "status": "published",
+            "duration_hours": null,
+            "is_enrolled": false,
             "category": {
                 "id": 1,
                 "name": "Programming"
@@ -304,7 +308,6 @@ Response `200`:
                 "father_name": "Samir",
                 "last_name": "Nasser"
             },
-            "duration_hours": null,
             "rating_average": null,
             "ratings_count": 0
         },
@@ -318,6 +321,8 @@ Response `200`:
             "difficulty_level": "easy",
             "what_you_will_learn": "Routing, Eloquent and testing.",
             "status": "pending_publish",
+            "duration_hours": null,
+            "is_enrolled": false,
             "category": {
                 "id": 1,
                 "name": "Programming"
@@ -328,7 +333,6 @@ Response `200`:
                 "father_name": "Samir",
                 "last_name": "Nasser"
             },
-            "duration_hours": null,
             "rating_average": null,
             "ratings_count": 0
         },
@@ -342,6 +346,8 @@ Response `200`:
             "difficulty_level": "medium",
             "what_you_will_learn": "HTTP tests, factories and fakes.",
             "status": "draft",
+            "duration_hours": null,
+            "is_enrolled": false,
             "category": {
                 "id": 1,
                 "name": "Programming"
@@ -352,7 +358,6 @@ Response `200`:
                 "father_name": "Samir",
                 "last_name": "Nasser"
             },
-            "duration_hours": null,
             "rating_average": null,
             "ratings_count": 0
         }
@@ -381,6 +386,8 @@ Response `200`:
         "difficulty_level": "medium",
         "what_you_will_learn": "HTTP tests, factories and fakes.",
         "status": "draft",
+        "duration_hours": null,
+        "is_enrolled": false,
         "category": {
             "id": 1,
             "name": "Programming"
@@ -391,7 +398,6 @@ Response `200`:
             "father_name": "Samir",
             "last_name": "Nasser"
         },
-        "duration_hours": null,
         "rating_average": null,
         "ratings_count": 0
     }
@@ -428,6 +434,8 @@ Response `200`:
         "difficulty_level": "medium",
         "what_you_will_learn": "HTTP tests, factories and fakes.",
         "status": "draft",
+        "duration_hours": null,
+        "is_enrolled": false,
         "category": {
             "id": 1,
             "name": "Programming"
@@ -438,7 +446,6 @@ Response `200`:
             "father_name": "Samir",
             "last_name": "Nasser"
         },
-        "duration_hours": null,
         "rating_average": null,
         "ratings_count": 0
     }
@@ -699,6 +706,8 @@ Response `200`:
             "difficulty_level": "easy",
             "what_you_will_learn": "Routing, Eloquent and testing.",
             "status": "pending_publish",
+            "duration_hours": null,
+            "is_enrolled": false,
             "category": {
                 "id": 1,
                 "name": "Programming"
@@ -709,7 +718,6 @@ Response `200`:
                 "father_name": "Samir",
                 "last_name": "Nasser"
             },
-            "duration_hours": null,
             "rating_average": null,
             "ratings_count": 0
         },
@@ -723,6 +731,8 @@ Response `200`:
             "difficulty_level": "medium",
             "what_you_will_learn": "HTTP tests, factories and fakes.",
             "status": "pending_publish",
+            "duration_hours": null,
+            "is_enrolled": false,
             "category": {
                 "id": 1,
                 "name": "Programming"
@@ -733,7 +743,6 @@ Response `200`:
                 "father_name": "Samir",
                 "last_name": "Nasser"
             },
-            "duration_hours": null,
             "rating_average": null,
             "ratings_count": 0
         }
@@ -762,6 +771,8 @@ Response `200`:
         "difficulty_level": "easy",
         "what_you_will_learn": "Routing, Eloquent and testing.",
         "status": "published",
+        "duration_hours": null,
+        "is_enrolled": false,
         "category": {
             "id": 1,
             "name": "Programming"
@@ -772,7 +783,6 @@ Response `200`:
             "father_name": "Samir",
             "last_name": "Nasser"
         },
-        "duration_hours": null,
         "rating_average": null,
         "ratings_count": 0,
         "sections": [
@@ -788,6 +798,7 @@ Response `200`:
                         "description": "Lesson description.",
                         "duration_seconds": 420,
                         "sort_order": 1,
+                        "completed": false,
                         "video_status": "ready"
                     },
                     {
@@ -796,6 +807,7 @@ Response `200`:
                         "description": "Lesson description.",
                         "duration_seconds": 610,
                         "sort_order": 2,
+                        "completed": false,
                         "video_status": "ready"
                     }
                 ]
@@ -859,6 +871,8 @@ Response `200`:
         "difficulty_level": "easy",
         "what_you_will_learn": "Routing, Eloquent and testing.",
         "status": "published",
+        "duration_hours": null,
+        "is_enrolled": false,
         "category": {
             "id": 1,
             "name": "Programming"
@@ -869,10 +883,8 @@ Response `200`:
             "father_name": "Samir",
             "last_name": "Nasser"
         },
-        "duration_hours": null,
         "rating_average": null,
         "ratings_count": 0,
-        "is_enrolled": false,
         "sections": [
             {
                 "id": 1,
@@ -885,14 +897,16 @@ Response `200`:
                         "title": "Installing Laravel",
                         "description": "Lesson description.",
                         "duration_seconds": 420,
-                        "sort_order": 1
+                        "sort_order": 1,
+                        "completed": false
                     },
                     {
                         "id": 2,
                         "title": "Routing",
                         "description": "Lesson description.",
                         "duration_seconds": 610,
-                        "sort_order": 2
+                        "sort_order": 2,
+                        "completed": false
                     }
                 ]
             }
@@ -1006,6 +1020,8 @@ Response `200`:
         "difficulty_level": "easy",
         "what_you_will_learn": "Routing, Eloquent and testing.",
         "status": "published",
+        "duration_hours": null,
+        "is_enrolled": true,
         "category": {
             "id": 1,
             "name": "Programming"
@@ -1016,10 +1032,8 @@ Response `200`:
             "father_name": "Samir",
             "last_name": "Nasser"
         },
-        "duration_hours": null,
         "rating_average": null,
         "ratings_count": 0,
-        "is_enrolled": true,
         "sections": [
             {
                 "id": 1,
@@ -1073,6 +1087,8 @@ Response `200`:
             "difficulty_level": "easy",
             "what_you_will_learn": "Routing, Eloquent and testing.",
             "status": "published",
+            "duration_hours": null,
+            "is_enrolled": true,
             "category": {
                 "id": 1,
                 "name": "Programming"
@@ -1083,9 +1099,34 @@ Response `200`:
                 "father_name": "Samir",
                 "last_name": "Nasser"
             },
-            "duration_hours": null,
             "rating_average": null,
             "ratings_count": 0,
+            "sections": [
+                {
+                    "id": 1,
+                    "title": "Getting started",
+                    "description": null,
+                    "sort_order": 1,
+                    "lessons": [
+                        {
+                            "id": 1,
+                            "title": "Installing Laravel",
+                            "description": "Lesson description.",
+                            "duration_seconds": 420,
+                            "sort_order": 1,
+                            "completed": true
+                        },
+                        {
+                            "id": 2,
+                            "title": "Routing",
+                            "description": "Lesson description.",
+                            "duration_seconds": 610,
+                            "sort_order": 2,
+                            "completed": false
+                        }
+                    ]
+                }
+            ],
             "enrolled_at": "2026-10-24T10:00:00.000000Z",
             "last_lesson_id": 1,
             "progress": {
@@ -1106,6 +1147,8 @@ Response `200`:
             "difficulty_level": "easy",
             "what_you_will_learn": "Routing, Eloquent and testing.",
             "status": "published",
+            "duration_hours": null,
+            "is_enrolled": true,
             "category": {
                 "id": 1,
                 "name": "Programming"
@@ -1116,9 +1159,34 @@ Response `200`:
                 "father_name": "Samir",
                 "last_name": "Nasser"
             },
-            "duration_hours": null,
             "rating_average": null,
             "ratings_count": 0,
+            "sections": [
+                {
+                    "id": 1,
+                    "title": "Getting started",
+                    "description": null,
+                    "sort_order": 1,
+                    "lessons": [
+                        {
+                            "id": 1,
+                            "title": "Installing Laravel",
+                            "description": "Lesson description.",
+                            "duration_seconds": 420,
+                            "sort_order": 1,
+                            "completed": true
+                        },
+                        {
+                            "id": 2,
+                            "title": "Routing",
+                            "description": "Lesson description.",
+                            "duration_seconds": 610,
+                            "sort_order": 2,
+                            "completed": false
+                        }
+                    ]
+                }
+            ],
             "enrolled_at": "2026-10-24T10:00:00.000000Z",
             "last_lesson_id": 1,
             "progress": {

@@ -4,12 +4,86 @@
 
 | Branch | Based on | Status |
 |---|---|---|
-| `feature/local-dev-setup` | `main` | Done, not pushed |
-| `feature/mvp-endpoints-1` | `feature/local-dev-setup` | Done, not pushed |
+| `main` | `upstream/main` (170d889) | Fast-forwarded, pushed to `origin` |
+| `feature/local-dev-setup` | `main` | Synced with upstream, pushed to `origin` |
+| `feature/mvp-endpoints-1` | `feature/local-dev-setup` | Synced with upstream, pushed to `origin` |
 
 Run the tests with `php artisan test` (in-memory SQLite, faked upload disk, faked
 Stripe HTTP client; no external services). Real request/response examples are in
 [API-EXAMPLES.md](API-EXAMPLES.md).
+
+## Upstream sync (2026-10-25)
+
+Upstream (`Andrew-Nakhle/educational_platform`) added two commits on top of our common
+ancestor `244773e`:
+
+- `8104b35` feat: add lesson progress tracking and enrollment status (2026-10-24)
+- `170d889` Update backend APIs and integration documentation (2026-10-25)
+
+### What upstream added
+
+| Area | Change |
+|---|---|
+| Routes | `POST /api/auth/forgot-password`, `POST /api/auth/reset-password`, `PUT /api/auth/change-password` (auth), `POST`/`DELETE /api/student/lessons/{id}/complete` |
+| Migrations | `2026_10_23_201648_create_lesson_progress_table`, `2026_10_24_124020_create_password_reset_tokens_table` |
+| Models | `LessonProgress`; `User::lessonProgress()`, `Lesson::progress()`, `Course::reviews()`, `InstructorProfile::reviews()`; `User::sendPasswordResetNotification()` |
+| Notifications | `ResetPasswordNotification`: mail link `{APP_URL}/reset-password?token=…&email=…` (uses `APP_URL`, not `FRONTEND_URL`) |
+| Requests | `Auth\ChangePasswordRequest` (`current_password`, `new_password`, `new_password_confirmation`); `Student\GetCoursesRequest` accepts `page`, `per_page` (max 50) |
+| Resources | `CourseResource`: `is_enrolled` always present, every lesson has `completed`; `LessonResource`: `video_status`, `video: null` when there is no video |
+| Controllers | `StudentController::completeLesson/uncompleteLesson`; my-courses rewritten; `AuthController` forgot/reset/change password; `ReviewController` uses `validated()`; admin approve/reject return 404 when the course is missing |
+| Payments | `PaymentProviderInterface::createPayment()` takes a 4th `int $courseId`; lazy Stripe client; `course_id` in metadata and redirect URLs |
+| Config / env | No new config files or env keys. Password reset mail needs the existing `MAIL_*` settings, and the link uses `APP_URL` |
+| Enums | Unchanged (course statuses still `draft`, `pending_publish`, `published`, `rejected`, `archived`) |
+
+### Already implemented upstream vs. still ours only
+
+| Item | Upstream | Notes |
+|---|---|---|
+| Course `status` field | Yes (already in base) | Unchanged |
+| Course `is_enrolled` | **Yes** | Upstream computes it for any request with a student token. Ours preloads it with `withExists` on the student endpoints; the merged resource uses the preloaded value when present |
+| Course rating fields (`rating_average`, `ratings_count`) | **No**, ours only | Upstream only added the `reviews()` relations |
+| Lesson progress (complete/uncomplete, `completed` flags, my-courses `progress`, `last_lesson_id`) | **Yes** | Same URLs and response shape as ours. Upstream's routes and `StudentController` methods are kept; our `LessonProgressController` and our migration were removed |
+| Ratings endpoints: list of ratings, `data { average, count, ratings[] }` | **No**, ours only | |
+| Re-rating updates the rating (200) | **No**, upstream returns 409 | **Conflict**: the merge keeps our update behaviour. Agree this with upstream before opening a PR |
+| change-password | **Yes** (`PUT`, `new_password`) | Ours was `POST` with `password`. Both routes and both field names now work with one action. Upstream also revokes the user's other tokens |
+| forgot/reset password | Upstream only | New |
+| `GET /api/stats` | **No**, ours only | |
+| Lazy Stripe client | **Yes** | Same idea as ours |
+| `course_id` in Stripe URLs | **Yes** | Same URLs as ours: `/payment/success?course_id={id}&session_id={CHECKOUT_SESSION_ID}`, `/payment/cancel?course_id={id}` |
+| 404 instead of 200 for missing records | Partly (admin approve/reject only) | The rest of our 404 fixes are ours only |
+| Profile updates return `data` | **No**, ours only | |
+
+### Things the React app may depend on
+
+- **Stripe return pages:** `fahhemni-react` reads `?course=` (`PaymentResultPages.jsx`,
+  `paymentReturnUrls()`), but the backend now redirects with `?course_id=`. The success and
+  cancel pages won't find the course until React also reads `course_id`.
+- **my-courses:** upstream returns `{ message, data }` without `courses`. The merged branch returns
+  `{ message, courses, data }`. React accepts both. Each item now also contains `sections` with
+  lessons and `completed`, because upstream eager-loads them. Items are newest-first
+  (`enrolled_at` desc).
+- **`is_enrolled` / `completed` are always present now:** `false` for guests, non-students, admin
+  and instructor course details. Before, these keys were missing in those cases. React treats
+  any non-boolean as unknown, so `false` is now a definite "not enrolled".
+- **Lesson uncomplete message:** upstream's text is `Lesson marked as incomplete.` (ours was
+  `…not completed.`). The keys are unchanged.
+- **change-password:** `PUT` with `new_password` is upstream's contract. `POST` with `password`
+  still works. After a change, the user's other tokens are revoked; the current token stays valid.
+- **Password reset mail** points to `{APP_URL}/reset-password`. If the reset page lives in React,
+  `APP_URL` must be the frontend URL, or the notification should use `FRONTEND_URL`.
+- **Admin approve/reject** of a missing course: 404 (was 200), both upstream and ours.
+- **Pagination:** the student course list accepts `page` and `per_page` (≤ 50).
+
+### Fixes made during the merge
+
+- `2026_10_24_124020_create_password_reset_tokens_table` failed on every fresh database,
+  because the default users migration already creates that table. It now skips if the
+  table exists, and its `down()` is a no-op. Worth sending upstream.
+- `2026_10_23_201648_create_lesson_progress_table` skips if the table exists, so databases that
+  already ran our removed `2026_10_24_100000_create_lesson_progress_table` still migrate.
+  Locally, `php artisan migrate:fresh` is the clean option.
+- Test assertions that expected `completed` / `is_enrolled` to be **absent** now expect `false`.
+  New tests cover `PUT /api/auth/change-password` with `new_password`.
 
 ## feature/local-dev-setup
 
@@ -27,7 +101,7 @@ Stripe HTTP client; no external services). Real request/response examples are in
 |---|---|---|---|
 | POST | `/api/student/lessons/{id}/complete` | student | Idempotent; enrolled students only (403 otherwise) |
 | DELETE | `/api/student/lessons/{id}/complete` | student | Undo; same response shape with `completed: false` |
-| POST | `/api/auth/change-password` | any role | `current_password`, `password`, `password_confirmation`; wrong current password → 422 |
+| POST | `/api/auth/change-password` | any role | `current_password`, `password`, `password_confirmation`; wrong current password → 422. Upstream's `PUT` with `new_password`/`new_password_confirmation` also works |
 | GET | `/api/stats` | public | `students` (not deleted), `courses` (published), `instructors` (active), `lessons` (of published courses) |
 
 ### Keys added to existing responses (nothing renamed or removed)
@@ -116,4 +190,5 @@ The statuses are defined in `app/Enums/Course/CourseStatus.php`; the
 15. `2026_10_02_171243_create_payments_table`
 16. `2026_10_19_185405_create_course_reviews_table`
 17. `2026_10_19_185406_create_instructor_reviews_table`
-18. `2026_10_24_100000_create_lesson_progress_table` (new, additive)
+18. `2026_10_23_201648_create_lesson_progress_table` (upstream; skips if the table exists)
+19. `2026_10_24_124020_create_password_reset_tokens_table` (upstream; skips if the table exists)
