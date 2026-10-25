@@ -35,6 +35,10 @@ class LessonController extends Controller
             ], 403);
         }
 
+        if ($locked = $this->courseContentLocked($section->course)) {
+            return $locked;
+        }
+
         $sortOrder = $section->lessons()->count() + 1;
 
         $lesson = DB::transaction(function () use (
@@ -194,6 +198,10 @@ class LessonController extends Controller
             ], 403);
         }
 
+        if ($locked = $this->courseContentLocked($lesson->section->course)) {
+            return $locked;
+        }
+
         $lesson->update($validated);
 
         return response()->json([
@@ -260,6 +268,10 @@ class LessonController extends Controller
             ], 403);
         }
 
+        if ($locked = $this->courseContentLocked($lesson->section->course)) {
+            return $locked;
+        }
+
         $lessonVideo = $lesson->video;
 
         if ($lessonVideo) {
@@ -316,6 +328,10 @@ class LessonController extends Controller
             return response()->json([
                 'message' => 'You are not authorized to reorder these lessons.',
             ], 403);
+        }
+
+        if ($locked = $this->courseContentLocked($section->course)) {
+            return $locked;
         }
 
         $this->applySortOrder(

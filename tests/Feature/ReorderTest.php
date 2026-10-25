@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Enums\Course\CourseStatus;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\Concerns\CreatesTestData;
 use Tests\TestCase;
@@ -9,6 +10,9 @@ use Tests\TestCase;
 class ReorderTest extends TestCase
 {
     use CreatesTestData, RefreshDatabase;
+
+    // Sections and lessons can only be reordered while the course is draft or rejected.
+    private const DRAFT = ['status' => CourseStatus::DRAFT];
 
     protected function setUp(): void
     {
@@ -20,7 +24,7 @@ class ReorderTest extends TestCase
     public function test_instructor_reorders_the_sections_of_their_course(): void
     {
         $instructor = $this->makeInstructor();
-        $course = $this->makeCourse($instructor);
+        $course = $this->makeCourse($instructor, self::DRAFT);
         [$a, $b, $c] = [$this->makeSection($course), $this->makeSection($course), $this->makeSection($course)];
 
         $this->actingAs($instructor, 'sanctum')
@@ -39,10 +43,10 @@ class ReorderTest extends TestCase
     public function test_section_ids_must_be_exactly_the_course_sections(): void
     {
         $instructor = $this->makeInstructor();
-        $course = $this->makeCourse($instructor);
+        $course = $this->makeCourse($instructor, self::DRAFT);
         $a = $this->makeSection($course);
         $b = $this->makeSection($course);
-        $foreign = $this->makeSection($this->makeCourse($instructor));
+        $foreign = $this->makeSection($this->makeCourse($instructor, self::DRAFT));
 
         $this->actingAs($instructor, 'sanctum');
 
@@ -68,7 +72,7 @@ class ReorderTest extends TestCase
 
     public function test_section_reorder_checks_owner_role_and_course(): void
     {
-        $course = $this->makeCourse();
+        $course = $this->makeCourse(attributes: self::DRAFT);
         $section = $this->makeSection($course);
         $uri = "/api/instructor/courses/{$course->id}/sections/reorder";
 
@@ -91,7 +95,7 @@ class ReorderTest extends TestCase
     public function test_instructor_reorders_the_lessons_of_their_section(): void
     {
         $instructor = $this->makeInstructor();
-        $section = $this->makeSection($this->makeCourse($instructor));
+        $section = $this->makeSection($this->makeCourse($instructor, self::DRAFT));
         [$a, $b, $c] = [$this->makeLesson($section), $this->makeLesson($section), $this->makeLesson($section)];
 
         $this->actingAs($instructor, 'sanctum')
@@ -110,7 +114,7 @@ class ReorderTest extends TestCase
     public function test_lesson_reorder_validates_ids_owner_and_section(): void
     {
         $instructor = $this->makeInstructor();
-        $course = $this->makeCourse($instructor);
+        $course = $this->makeCourse($instructor, self::DRAFT);
         $section = $this->makeSection($course);
         $a = $this->makeLesson($section);
         $b = $this->makeLesson($section);

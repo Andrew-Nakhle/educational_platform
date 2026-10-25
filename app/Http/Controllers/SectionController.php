@@ -34,6 +34,10 @@ class SectionController extends Controller
             ], 403);
         }
 
+        if ($locked = $this->courseContentLocked($course)) {
+            return $locked;
+        }
+
         $sortOrder = $course->sections()->count() + 1;
 
         $section = $course->sections()->create([
@@ -108,6 +112,10 @@ class SectionController extends Controller
         if ($section->course->instructor_profile_id !== $instructorProfile->id) {
 
             return response()->json(['message' => 'You are not authorized to update this section.',], 403);
+        }
+
+        if ($locked = $this->courseContentLocked($section->course)) {
+            return $locked;
         }
 
         $section->update($validated);
@@ -231,6 +239,10 @@ class SectionController extends Controller
             ], 403);
         }
 
+        if ($locked = $this->courseContentLocked($section->course)) {
+            return $locked;
+        }
+
 
 
         try {
@@ -311,6 +323,10 @@ class SectionController extends Controller
             return response()->json([
                 'message' => 'You are not authorized to reorder these sections.',
             ], 403);
+        }
+
+        if ($locked = $this->courseContentLocked($course)) {
+            return $locked;
         }
 
         $this->applySortOrder(

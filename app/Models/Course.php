@@ -31,6 +31,15 @@ class Course extends Model
         'price' => 'decimal:2',
 
     ];
+    /**
+     * Content (details, sections, lessons) can only change while the
+     * course is a draft or was rejected.
+     */
+    public function isEditable(): bool
+    {
+        return in_array($this->status, [CourseStatus::DRAFT, CourseStatus::REJECTED], true);
+    }
+
     public function instructorProfile()
     {
         return $this->belongsTo(InstructorProfile::class);

@@ -133,6 +133,12 @@ class CourseController extends Controller
             ], 403);
         }
 
+        if (! $course->isEditable()) {
+            return response()->json([
+                'message' => 'Only draft or rejected courses can be updated.',
+            ], 422);
+        }
+
         /*
          * Keep the old thumbnail path.
          */
@@ -192,6 +198,12 @@ class CourseController extends Controller
             return response()->json([
                 'message' => 'You are not authorized to delete this course.',
             ], 403);
+        }
+
+        if ($course->status !== CourseStatus::DRAFT) {
+            return response()->json([
+                'message' => 'Only draft courses can be deleted.',
+            ], 422);
         }
 
         try {
@@ -278,14 +290,16 @@ if (! $course) {
             ], 403);
         }
 
-        if ($course->status !== CourseStatus::DRAFT) {
+        if (! in_array($course->status, [CourseStatus::DRAFT, CourseStatus::REJECTED], true)) {
             return response()->json([
-                'message' => 'Only draft courses can be submitted for publishing.',
+                'message' => 'Only draft or rejected courses can be submitted for publishing.',
             ], 422);
         }
 
+        // Resubmitting a rejected course clears the previous reason.
         $course->update([
             'status' => CourseStatus::PENDING_PUBLISH,
+            'reject_reason' => null,
         ]);
 
         return response()->json([

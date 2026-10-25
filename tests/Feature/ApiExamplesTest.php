@@ -425,23 +425,27 @@ class ApiExamplesTest extends TestCase
         $this->record('Mark a contact message as read (admin)', 'PATCH', "/api/admin/contact-messages/{$contactId}/read", token: $tokens['admin'])
             ->assertOk();
 
-        // --- Reorder -------------------------------------------------------------------
-        $secondSection = $this->makeSection($freeCourse, ['title' => 'Going further']);
+        // --- Reorder (draft or rejected courses only) ---------------------------------
+        $draftCourse = $this->makeCourse($instructor, ['title' => 'Docker for Laravel', 'status' => CourseStatus::DRAFT]);
+        $draftSection = $this->makeSection($draftCourse, ['title' => 'Containers']);
+        $this->makeLesson($draftSection, ['title' => 'Images and containers', 'duration_seconds' => 380]);
+        $this->makeLesson($draftSection, ['title' => 'Compose', 'duration_seconds' => 450]);
+        $secondSection = $this->makeSection($draftCourse, ['title' => 'Going further']);
 
         $this->record(
             'Reorder the sections of a course (instructor)',
             'PATCH',
-            "/api/instructor/courses/{$freeCourse->id}/sections/reorder",
-            ['ids' => [$secondSection->id, $section->id]],
+            "/api/instructor/courses/{$draftCourse->id}/sections/reorder",
+            ['ids' => [$secondSection->id, $draftSection->id]],
             $tokens['instructor']
         )->assertOk();
 
-        $lessonIds = $section->lessons()->orderBy('sort_order')->pluck('id')->all();
+        $lessonIds = $draftSection->lessons()->orderBy('sort_order')->pluck('id')->all();
 
         $this->record(
             'Reorder the lessons of a section (instructor)',
             'PATCH',
-            "/api/instructor/sections/{$section->id}/lessons/reorder",
+            "/api/instructor/sections/{$draftSection->id}/lessons/reorder",
             ['ids' => array_reverse($lessonIds)],
             $tokens['instructor']
         )->assertOk();
@@ -449,7 +453,7 @@ class ApiExamplesTest extends TestCase
         $this->record(
             'Reorder with ids that are not exactly the section lessons (422)',
             'PATCH',
-            "/api/instructor/sections/{$section->id}/lessons/reorder",
+            "/api/instructor/sections/{$draftSection->id}/lessons/reorder",
             ['ids' => [$lessonIds[0]]],
             $tokens['instructor']
         )->assertStatus(422);

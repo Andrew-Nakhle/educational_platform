@@ -2,7 +2,9 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Course;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
@@ -22,6 +24,21 @@ abstract class Controller
             'total' => $paginator->total(),
             'per_page' => $paginator->perPage(),
         ];
+    }
+
+    /**
+     * 422 when the sections/lessons of $course cannot change (the course
+     * is not draft or rejected), otherwise null.
+     */
+    protected function courseContentLocked(Course $course): ?JsonResponse
+    {
+        if ($course->isEditable()) {
+            return null;
+        }
+
+        return response()->json([
+            'message' => 'Sections and lessons can only be changed while the course is draft or rejected.',
+        ], 422);
     }
 
     /**
