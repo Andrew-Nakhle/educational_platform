@@ -14,6 +14,7 @@ use App\Http\Resources\Course\CourseResource;
 use App\Models\Category;
 use App\Models\Course;
 use App\Models\Lesson;
+use App\Models\LessonProgress;
 use App\Services\StripePaymentService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\DB;
@@ -258,7 +259,8 @@ class StudentController extends Controller{
                 $stripePayment = $this->stripePaymentService->createPayment(
                     (float) $payment->amount,
                     $payment->currency,
-                    $payment->id
+                    $payment->id,
+                    $courseId
                 );
 
                 if (
@@ -327,20 +329,65 @@ class StudentController extends Controller{
 
 
 
-            public function getMyCourses()
+
+    public function getMyCourses(): JsonResponse
     {
         $student = auth()->user();
 
         $enrollments = $student->enrollments()
-            ->with('course')
+            ->with([
+                'course.category',
+                'course.instructorProfile',
+                'course.sections.lessons',
+            ])
+            ->latest('enrolled_at')
             ->get();
 
-        $courses = $enrollments->pluck('course');
+        $data = $enrollments->map(function ($enrollment) use ($student) {
+            $course = $enrollment->course;
+
+            if (! $course) {
+                return null;
+            }
+
+            $lessons = $course->sections
+                ->flatMap(fn ($section) => $section->lessons);
+
+            $completedLessonIds = \App\Models\LessonProgress::query()
+                ->where('user_id', $student->id)
+                ->whereIn('lesson_id', $lessons->pluck('id'))
+                ->whereNotNull('completed_at')
+                ->pluck('lesson_id');
+
+            $completedCount = $completedLessonIds->unique()->count();
+            $totalLessons = $lessons->count();
+
+            $lastLessonId = $lessons
+                ->filter(fn ($lesson) => $completedLessonIds->contains($lesson->id))
+                ->sortByDesc(fn ($lesson) => $lesson->sort_order)
+                ->first()?->id;
+
+            $courseData = (new CourseResource($course))->resolve();
+
+            $courseData['enrolled_at'] = $enrollment->enrolled_at;
+            $courseData['last_lesson_id'] = $lastLessonId;
+            $courseData['progress'] = [
+                'completed_lessons' => $completedCount,
+                'total_lessons' => $totalLessons,
+                'percent' => $totalLessons > 0
+                    ? (int) round(($completedCount / $totalLessons) * 100)
+                    : 0,
+            ];
+
+            return $courseData;
+        })->filter()->values();
 
         return response()->json([
-            'courses' => CourseResource::collection($courses),
+            'message' => 'My courses retrieved successfully.',
+            'data' => $data,
         ]);
     }
+
 
 
     public function getCourses(GetCoursesRequest $request)
@@ -444,6 +491,116 @@ class StudentController extends Controller{
             ],
         ], 200);
     }
+
+
+
+
+    public function completeLesson(int $lessonId): JsonResponse
+    {
+        $student = auth()->user();
+
+        $lesson = Lesson::with('section.course')->find($lessonId);
+
+        if (! $lesson) {
+            return response()->json([
+                'message' => 'Lesson not found.',
+            ], 404);
+        }
+
+        $course = $lesson->section->course;
+
+        $isEnrolled = $student->enrollments()
+            ->where('course_id', $course->id)
+            ->exists();
+
+        if (! $isEnrolled) {
+            return response()->json([
+                'message' => 'You are not enrolled in this course.',
+            ], 403);
+        }
+
+        LessonProgress::firstOrCreate(
+            [
+                'user_id' => $student->id,
+                'lesson_id' => $lesson->id,
+            ],
+            [
+                'completed_at' => now(),
+            ]
+        );
+
+        return response()->json([
+            'message' => 'Lesson marked as completed.',
+            'data' => [
+                'lesson_id' => $lesson->id,
+                'completed' => true,
+                'progress' => $this->getCourseProgress($student->id, $course),
+            ],
+        ]);
+    }
+
+    public function uncompleteLesson(int $lessonId): JsonResponse
+    {
+        $student = auth()->user();
+
+        $lesson = Lesson::with('section.course')->find($lessonId);
+
+        if (! $lesson) {
+            return response()->json([
+                'message' => 'Lesson not found.',
+            ], 404);
+        }
+
+        $course = $lesson->section->course;
+
+        $isEnrolled = $student->enrollments()
+            ->where('course_id', $course->id)
+            ->exists();
+
+        if (! $isEnrolled) {
+            return response()->json([
+                'message' => 'You are not enrolled in this course.',
+            ], 403);
+        }
+
+        LessonProgress::where('user_id', $student->id)
+            ->where('lesson_id', $lesson->id)
+            ->delete();
+
+        return response()->json([
+            'message' => 'Lesson marked as incomplete.',
+            'data' => [
+                'lesson_id' => $lesson->id,
+                'completed' => false,
+                'progress' => $this->getCourseProgress($student->id, $course),
+            ],
+        ]);
+    }
+
+    private function getCourseProgress(int $studentId, Course $course): array
+    {
+        $totalLessons = Lesson::whereHas('section', function ($query) use ($course) {
+            $query->where('course_id', $course->id);
+        })->count();
+
+        $completedLessons = LessonProgress::where('user_id', $studentId)
+            ->whereHas('lesson.section', function ($query) use ($course) {
+                $query->where('course_id', $course->id);
+            })
+            ->whereNotNull('completed_at')
+            ->count();
+
+        return [
+            'course_id' => $course->id,
+            'completed_lessons' => $completedLessons,
+            'total_lessons' => $totalLessons,
+            'percent' => $totalLessons > 0
+                ? (int) round(($completedLessons / $totalLessons) * 100)
+                : 0,
+        ];
+    }
+
+
     public function getAllCategories()
     {
         $categories = Category::all();

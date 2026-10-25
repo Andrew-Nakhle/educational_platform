@@ -13,6 +13,7 @@ use App\Http\Controllers\SectionController;
 use App\Http\Controllers\StudentController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
+use Illuminate\Support\Facades\Mail;
 
 Route::post('/payments/stripe/webhook', [PaymentController::class, 'webhook']);
 Route::prefix('student')->group(function () {
@@ -30,6 +31,9 @@ Route::prefix('auth')->group(function () {
     Route::get('/profile', [AuthController::class, 'profile'])->middleware('auth:sanctum');
     Route::post('/logout', [AuthController::class, 'logout'])->middleware('auth:sanctum');
     Route::post('/register-instructor', [AuthController::class, 'registerInstructor',]);
+    Route::post('/forgot-password', [AuthController::class, 'forgotPassword',]);
+    Route::post('/reset-password', [AuthController::class, 'resetPassword',]);
+    Route::put('/change-password', [AuthController::class, 'changePassword',])->middleware('auth:sanctum');
 });
 //admin////
 Route::prefix('admin')->middleware(['auth:sanctum','role:admin',])->group(function () {
@@ -99,6 +103,8 @@ Route::prefix('student')->middleware(['auth:sanctum','role:student','user.status
 //    Route::post('/courses/{courseId}/payment', [PaymentController::class, 'createPayment']);
     Route::post('/courses/{courseId}/rate', [ReviewController::class, 'rateCourse']);
     Route::post('/courses/{courseId}/rate-instructor', [ReviewController::class, 'rateInstructor']);
+    Route::post('/lessons/{lessonId}/complete', [StudentController::class, 'completeLesson']);
+    Route::delete('/lessons/{lessonId}/complete', [StudentController::class, 'uncompleteLesson']);
 
 
 });

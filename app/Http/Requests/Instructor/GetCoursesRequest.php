@@ -6,7 +6,8 @@ use App\Enums\Course\CourseStatus;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
-class GetCoursesRequest extends FormRequest
+class
+GetCoursesRequest extends FormRequest
 {
     public function authorize(): bool
     {
