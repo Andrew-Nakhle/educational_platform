@@ -10,6 +10,7 @@
 | `feature/mvp-endpoints-2` | `feature/mvp-endpoints-1` | Pagination, reject reasons, contact form, reorder; pushed to `origin` |
 | `feature/mvp-endpoints-3` | `feature/mvp-endpoints-2` | Status rules, upload limits, replace video, instructor re-apply, teaching majors, admin payments/users lists, `my_rating`; pushed to `origin` |
 | `feature/mvp-endpoints-4` | `feature/mvp-endpoints-3` | Instructor sign-up without an avatar, default reason for a reason-less rejection, `?search=` on admin users; pushed to `origin` |
+| `feature/demo-seed-command` | `feature/mvp-endpoints-4` | `php artisan demo:seed` (fake data for end-to-end testing); pushed to `origin` |
 
 Run the tests with `php artisan test` (in-memory SQLite, faked upload disk, faked
 Stripe HTTP client; no external services). Real request/response examples are in
@@ -345,6 +346,39 @@ Additive: no URL, method or existing key was changed or removed. One new migrati
 - Combines with `role`, `status`, `page` and `per_page`; the pagination links keep `search`.
   Without `search` the response is exactly as before.
 
+## feature/demo-seed-command
+
+Additive: one artisan command (`app/Console/Commands/DemoSeed.php`) and `config/demo.php`. No migration, no change to the API.
+
+`php artisan demo:seed` fills an empty or existing database with fake data:
+
+| What | Rows |
+|---|---|
+| Accounts (all `@example.test`) | `admin@example.test`; `instructor1`–`instructor3@example.test` (active); `instructor4@example.test` (pending approval); `instructor5@example.test` (rejected: `inactive` with a `reject_reason`); `student1`–`student3@example.test` |
+| Categories | Programming, Civil Engineering, Business, Design |
+| Courses (7) | Laravel Basics (published, free), Advanced Eloquent (published, 49.99), Concrete Design 101 (published, 29.00), Startup Finance (pending_publish), UI Sketching (draft), Bridge Loads (rejected, with a reason), Old Surveying (archived); 2 sections × 2 lessons each, every lesson video `ready` |
+| Learning | 5 enrollments, lesson progress for two students, 3 course ratings and 1 instructor rating with comments |
+| Admin | 1 contact message; 2 payments (one `paid`, one `pending` on the archived course so it never blocks buying a published one) |
+
+- **Passwords:** never hardcoded. Every demo account gets `DEMO_SEED_PASSWORD` when set (and it is not printed); otherwise a random 16-character password is generated on each run and printed once.
+- **Production:** refuses to run when `APP_ENV=production` unless `DEMO_SEED_ALLOW=true`.
+- **Idempotent:** every row is found by a stable key (email, category name, course title + demo instructor, section / lesson title in their parent, the unique pairs for enrollments, progress, ratings and payments) and updated; a second run adds nothing. A real course with the same title as a demo one is not touched.
+- **No external calls, no storage:** no Stripe, no file is written. Lessons have placeholder video paths (listed as ready, not playable), thumbnails are empty (the API returns `null`, the frontend shows its default image), avatars are `null`. The payments have no Stripe ids, so `payments:expire-unpaid` only changes the pending one locally.
+- **Tests:** `DemoSeedCommandTest` (refuses in production, runs with the flag, every role and status, idempotent, leaves real data alone, never prints a configured password, prints a generated one once and it works, no Stripe or storage call, the seeded accounts log in and the catalog shows the published courses).
+
+### Run the local backend for end-to-end testing (Windows, PowerShell)
+
+```powershell
+php artisan migrate --force
+$env:DEMO_SEED_PASSWORD = 'choose-a-local-password'   # optional; without it a random one is printed once
+php artisan demo:seed
+php artisan serve
+```
+
+In a second terminal: `php artisan queue:work`. It is only needed when `QUEUE_CONNECTION=database`, for processing uploaded videos, which also needs ffmpeg (`FFMPEG_PATH`, `FFPROBE_PATH`). The seeded lessons don't need it.
+
+The frontend's `fahhemni-react/.env.local` should contain `VITE_API_BASE_URL=http://127.0.0.1:8000/api`.
+
 ## Open points
 
 - **Restore** always returns a course to `draft`, not to the status before
@@ -353,6 +387,8 @@ Additive: no URL, method or existing key was changed or removed. One new migrati
 - ~~An instructor rejected **without** a reason can't re-apply~~: fixed in mvp-endpoints-4 (default
   reason). Applicants rejected without a reason before that still need a one-off data fix (see above).
 - ~~`instructor_profiles.avatar` is NOT NULL~~: nullable since mvp-endpoints-4 (migration 22).
+- The original seeders (`AdminSeeder`, `InstructorSeeder`, `StudentSeeder`, run by `php artisan db:seed`)
+  set hardcoded passwords. They are upstream code and were left as they are; `demo:seed` doesn't use them.
 - `CheckUserStatus` blocks `inactive` users only; the `blocked` check is commented
   out, so a blocked user who still has a token can keep using the API.
 - `duration_hours` in course responses is always `null` (no such column; the

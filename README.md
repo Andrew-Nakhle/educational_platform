@@ -46,6 +46,39 @@ Requirements: PHP 8.3+ (with the `pdo_sqlite`, `fileinfo` and `gd` extensions en
     php artisan schedule:work
     ```
 
+### Demo data for end-to-end testing
+
+`php artisan demo:seed` fills the database with fake data for every screen: an admin, three approved instructors, one waiting for approval and one rejected (with a reason), three students, four categories, seven courses in every status (free and paid, with sections and lessons), enrollments with progress, ratings, a contact message and two payments. All emails end in `@example.test` (`admin@example.test`, `instructor1@example.test` … `instructor5@example.test`, `student1@example.test` … `student3@example.test`). It can be run again: nothing is duplicated.
+
+Passwords are never stored in the repository. Every demo account gets the value of `DEMO_SEED_PASSWORD` if you set it in the terminal (not in a committed file); otherwise the command generates a random password on each run and prints it once.
+
+Run, in order (PowerShell, from the project root):
+
+```powershell
+php artisan migrate --force
+$env:DEMO_SEED_PASSWORD = 'choose-a-local-password'   # optional; without it a random one is printed
+php artisan demo:seed
+php artisan serve
+```
+
+In a second terminal:
+
+```powershell
+php artisan queue:work
+```
+
+The worker is only needed when `QUEUE_CONNECTION=database`, for processing uploaded videos, which also needs ffmpeg (see below). The seeded lessons don't need it: they are marked ready but have no real video file, so they can't be played. Course thumbnails and avatars are empty, and the frontend shows its default images. No external service is called (no Stripe).
+
+`demo:seed` refuses to run when `APP_ENV=production` unless `DEMO_SEED_ALLOW=true` is set.
+
+For the React frontend, `fahhemni-react/.env.local` should contain:
+
+```dotenv
+VITE_API_BASE_URL=http://127.0.0.1:8000/api
+```
+
+Keep `FRONTEND_URL` in this project's `.env` at the frontend's address (default `http://localhost:5173`) so the password-reset links and the Stripe return pages point to it.
+
 ### Lesson videos (optional)
 
 Uploaded lesson videos are converted to HLS with ffmpeg by the `ProcessLessonVideo` job.
@@ -67,7 +100,7 @@ Uploaded lesson videos are converted to HLS with ffmpeg by the `ProcessLessonVid
 
 Paid enrollment (`POST /api/student/courses/{id}/enroll`) needs Stripe test keys.
 
-1. Set `STRIPE_SECRET` to your test secret key (`sk_test_...`) in `.env`. `StudentController` cannot be resolved without it, so the student and catalog endpoints return 500 until it is set to some value.
+1. Set `STRIPE_SECRET` to your test secret key (`sk_test_...`) in `.env`. Only the payment calls need it: the Stripe client is created when a payment is made, so the catalog and the other student endpoints work without it.
 2. Install the [Stripe CLI](https://docs.stripe.com/stripe-cli), log in and forward webhooks to the API:
 
     ```powershell
