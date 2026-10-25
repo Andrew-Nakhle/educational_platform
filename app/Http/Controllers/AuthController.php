@@ -8,12 +8,15 @@ use App\Http\Requests\Auth\LoginRequest;
 use App\Http\Requests\Auth\RegisterInstructorRequest;
 use App\Http\Requests\Auth\RegisterRequest;
 use App\Http\Resources\Auth\UserResource;
+use App\Services\B2StorageService;
 use Illuminate\Support\Facades\Auth;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Password;
+use Throwable;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 class AuthController extends Controller
@@ -117,6 +120,30 @@ class AuthController extends Controller
     {
         $validated = $request->validated();
 
+        $existingUser = User::with('instructorProfile.certificates')
+            ->where('email', $validated['email'])
+            ->first();
+
+        if ($existingUser && ! $this->isRejectedInstructor($existingUser)) {
+            throw ValidationException::withMessages([
+                'email' => ['The email has already been taken.'],
+            ]);
+        }
+
+        if (
+            User::where('phone', $validated['phone'])
+                ->when($existingUser, fn ($query) => $query->whereKeyNot($existingUser->id))
+                ->exists()
+        ) {
+            throw ValidationException::withMessages([
+                'phone' => ['The phone has already been taken.'],
+            ]);
+        }
+
+        if ($existingUser) {
+            return $this->reapplyInstructor($request, $validated, $existingUser);
+        }
+
         $instructor = DB::transaction(function () use ($request, $validated) {
 
             // Create user
@@ -164,6 +191,101 @@ class AuthController extends Controller
 //هون عملت ريفريش كرمال ما يعطيني خطا انو حالة المستخدم null لهيك عملت هيك
             return $user->refresh()->load(['instructorProfile.certificates', 'roles',]);
         });
+        return response()->json([
+            'message' => 'Your instructor registration is pending admin approval.',
+            'instructor' => new UserResource($instructor),
+        ], 201);
+    }
+
+    /**
+     * A rejected application: instructor, inactive, with a reject reason.
+     */
+    private function isRejectedInstructor(User $user): bool
+    {
+        return $user->status === UserStatus::INACTIVE
+            && $user->hasRole('instructor')
+            && filled($user->instructorProfile?->reject_reason);
+    }
+
+    /**
+     * Re-submits a rejected instructor application with the new data and
+     * puts it back in the pending queue.
+     */
+    private function reapplyInstructor(
+        RegisterInstructorRequest $request,
+        array $validated,
+        User $user
+    ) {
+        $profile = $user->instructorProfile;
+        $oldAvatar = $profile->avatar;
+        $oldCertificates = $profile->certificates->pluck('certification')->filter()->all();
+
+        $avatarPath = $request->hasFile('avatar')
+            ? $request->file('avatar')->store('instructors/avatars', config('filesystems.upload_disk'))
+            : null;
+
+        $certificatePaths = array_map(
+            fn ($certificate) => $certificate->store('instructors/certificates', config('filesystems.upload_disk')),
+            $request->file('certifications', [])
+        );
+
+        $instructor = DB::transaction(function () use ($validated, $user, $profile, $avatarPath, $certificatePaths) {
+            $user->update([
+                'gender' => $validated['gender'],
+                'birthday' => $validated['birthday'],
+                'phone' => $validated['phone'],
+                'password' => Hash::make($validated['password']),
+                'status' => UserStatus::PENDING,
+            ]);
+
+            // Pending accounts must not keep working tokens.
+            $user->tokens()->delete();
+
+            $profileData = [
+                'first_name' => $validated['first_name'],
+                'father_name' => $validated['father_name'],
+                'last_name' => $validated['last_name'],
+                'teaching_major' => $validated['teaching_major'],
+                'bio' => $validated['bio'] ?? null,
+                'reject_reason' => null,
+            ];
+
+            // Keep the current avatar/certificates unless new ones were uploaded.
+            if ($avatarPath) {
+                $profileData['avatar'] = $avatarPath;
+            }
+
+            $profile->update($profileData);
+
+            if ($certificatePaths) {
+                $profile->certificates()->delete();
+
+                foreach ($certificatePaths as $certificatePath) {
+                    $profile->certificates()->create([
+                        'certification' => $certificatePath,
+                    ]);
+                }
+            }
+
+            return $user->refresh()->load(['instructorProfile.certificates', 'roles']);
+        });
+
+        $replacedFiles = array_merge(
+            $avatarPath && $oldAvatar ? [$oldAvatar] : [],
+            $certificatePaths ? $oldCertificates : []
+        );
+
+        try {
+            foreach ($replacedFiles as $path) {
+                app(B2StorageService::class)->deleteAllB2Versions($path);
+            }
+        } catch (Throwable $e) {
+            Log::warning('Failed to delete replaced instructor files.', [
+                'user_id' => $user->id,
+                'error' => $e->getMessage(),
+            ]);
+        }
+
         return response()->json([
             'message' => 'Your instructor registration is pending admin approval.',
             'instructor' => new UserResource($instructor),
