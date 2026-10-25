@@ -4,9 +4,11 @@ namespace Tests\Feature;
 
 use App\Enums\Course\CourseStatus;
 use App\Enums\User\UserStatus;
+use App\Notifications\ResetPasswordNotification;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Notification;
 use Illuminate\Support\Facades\Storage;
 use Tests\Concerns\CreatesTestData;
 use Tests\TestCase;
@@ -247,5 +249,105 @@ class AccountTest extends TestCase
                     'lessons' => 2,
                 ],
             ]);
+    }
+
+    public function test_admin_stats_count_users_courses_and_pending_items(): void
+    {
+        $this->makeStudent();
+        $this->makeStudent(['status' => UserStatus::BLOCKED]);
+        $active = $this->makeInstructor();
+        $this->makeInstructor(['status' => UserStatus::PENDING]);
+        $this->makeInstructor(['status' => UserStatus::PENDING]);
+        $admin = $this->makeAdmin();
+
+        $this->makeCourse($active);
+        $this->makeCourse($active, ['status' => CourseStatus::PENDING_PUBLISH]);
+        $this->makeCourse($active, ['status' => CourseStatus::DRAFT]);
+
+        $zeros = ['active' => 0, 'inactive' => 0, 'blocked' => 0, 'deleted' => 0, 'pending' => 0];
+
+        $this->actingAs($admin, 'sanctum')
+            ->getJson('/api/admin/stats')
+            ->assertOk()
+            ->assertExactJson([
+                'message' => 'Admin statistics retrieved successfully.',
+                'data' => [
+                    'users_by_role_and_status' => [
+                        'admin' => ['active' => 1, 'total' => 1] + $zeros,
+                        'instructor' => ['active' => 1, 'pending' => 2, 'total' => 3] + $zeros,
+                        'student' => ['active' => 1, 'blocked' => 1, 'total' => 2] + $zeros,
+                    ],
+                    'courses_by_status' => [
+                        'draft' => 1,
+                        'pending_publish' => 1,
+                        'published' => 1,
+                        'rejected' => 0,
+                        'archived' => 0,
+                        'total' => 3,
+                    ],
+                    'pending_instructor_requests' => 2,
+                    'pending_courses' => 1,
+                ],
+            ]);
+    }
+
+    public function test_admin_stats_are_admin_only(): void
+    {
+        $this->getJson('/api/admin/stats')->assertUnauthorized();
+
+        foreach ([$this->makeStudent(), $this->makeInstructor()] as $user) {
+            $this->actingAs($user, 'sanctum')
+                ->getJson('/api/admin/stats')
+                ->assertForbidden();
+        }
+    }
+
+    public function test_password_reset_mail_links_to_the_frontend(): void
+    {
+        Notification::fake();
+        config(['app.url' => 'http://api.example.test', 'app.frontend_url' => 'http://app.example.test/']);
+
+        $student = $this->makeStudent();
+
+        $this->postJson('/api/auth/forgot-password', ['email' => $student->email])
+            ->assertOk()
+            ->assertExactJson(['message' => 'If the email is registered, a password reset link will be sent.']);
+
+        Notification::assertSentTo(
+            $student,
+            ResetPasswordNotification::class,
+            function (ResetPasswordNotification $notification) use ($student) {
+                $url = $notification->toMail($student)->actionUrl;
+
+                return $url === 'http://app.example.test/reset-password?'
+                    .http_build_query(['token' => $notification->token, 'email' => $student->email]);
+            }
+        );
+    }
+
+    public function test_password_reset_token_from_the_mail_resets_the_password(): void
+    {
+        Notification::fake();
+        $student = $this->makeStudent();
+
+        $this->postJson('/api/auth/forgot-password', ['email' => $student->email])->assertOk();
+
+        $token = null;
+        Notification::assertSentTo($student, ResetPasswordNotification::class, function ($notification) use (&$token) {
+            $token = $notification->token;
+
+            return true;
+        });
+
+        $this->postJson('/api/auth/reset-password', [
+            'token' => $token,
+            'email' => $student->email,
+            'password' => 'brand-new-password',
+            'password_confirmation' => 'brand-new-password',
+        ])
+            ->assertOk()
+            ->assertExactJson(['message' => 'Password has been reset successfully.']);
+
+        $this->assertTrue(Hash::check('brand-new-password', $student->fresh()->password));
     }
 }

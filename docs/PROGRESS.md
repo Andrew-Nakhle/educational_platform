@@ -43,14 +43,14 @@ ancestor `244773e`:
 | Course `is_enrolled` | **Yes** | Upstream computes it for any request with a student token. Ours preloads it with `withExists` on the student endpoints; the merged resource uses the preloaded value when present |
 | Course rating fields (`rating_average`, `ratings_count`) | **No**, ours only | Upstream only added the `reviews()` relations |
 | Lesson progress (complete/uncomplete, `completed` flags, my-courses `progress`, `last_lesson_id`) | **Yes** | Same URLs and response shape as ours. Upstream's routes and `StudentController` methods are kept; our `LessonProgressController` and our migration were removed |
-| Ratings endpoints: list of ratings, `data { average, count, ratings[] }` | **No**, ours only | |
-| Re-rating updates the rating (200) | **No**, upstream returns 409 | **Conflict**: the merge keeps our update behaviour. Agree this with upstream before opening a PR |
+| Ratings endpoints: list of ratings, `data { average, count, ratings[], my_rating }` | **No**, ours only | |
+| Changing a rating | **No**, upstream returns 409 on a second `POST` | **Decided (option C):** `POST` keeps upstream's 409; new `PUT` endpoints update the rating |
 | change-password | **Yes** (`PUT`, `new_password`) | Ours was `POST` with `password`. Both routes and both field names now work with one action. Upstream also revokes the user's other tokens |
 | forgot/reset password | Upstream only | New |
-| `GET /api/stats` | **No**, ours only | |
+| `GET /api/stats`, `GET /api/admin/stats` | **No**, ours only | |
 | Lazy Stripe client | **Yes** | Same idea as ours |
 | `course_id` in Stripe URLs | **Yes** | Same URLs as ours: `/payment/success?course_id={id}&session_id={CHECKOUT_SESSION_ID}`, `/payment/cancel?course_id={id}` |
-| 404 instead of 200 for missing records | Partly (admin approve/reject only) | The rest of our 404 fixes are ours only |
+| 404 instead of 200 for missing records | Partly (admin approve/reject only) | The rest of our 404 fixes and the shared `{Model} not found.` body are ours only |
 | Profile updates return `data` | **No**, ours only | |
 
 ### Things the React app may depend on
@@ -69,8 +69,9 @@ ancestor `244773e`:
   `…not completed.`). The keys are unchanged.
 - **change-password:** `PUT` with `new_password` is upstream's contract. `POST` with `password`
   still works. After a change, the user's other tokens are revoked; the current token stays valid.
-- **Password reset mail** points to `{APP_URL}/reset-password`. If the reset page lives in React,
-  `APP_URL` must be the frontend URL, or the notification should use `FRONTEND_URL`.
+- **Password reset mail** now points to `{FRONTEND_URL}/reset-password?token=…&email=…` (decision 3;
+  upstream uses `APP_URL`). React needs a `/reset-password` page that posts `token`, `email`,
+  `password`, `password_confirmation` to `POST /api/auth/reset-password`.
 - **Admin approve/reject** of a missing course: 404 (was 200), both upstream and ours.
 - **Pagination:** the student course list accepts `page` and `per_page` (≤ 50).
 
@@ -84,6 +85,20 @@ ancestor `244773e`:
   Locally, `php artisan migrate:fresh` is the clean option.
 - Test assertions that expected `completed` / `is_enrolled` to be **absent** now expect `false`.
   New tests cover `PUT /api/auth/change-password` with `new_password`.
+
+## Decisions (2026-10-25)
+
+1. **Ratings, option C.** `POST /api/student/courses/{id}/rate` and `/rate-instructor` are exactly
+   upstream's: a second `POST` returns **409** `You have already rated this course.` /
+   `You have already rated this instructor.` New `PUT` routes on the same paths change an existing
+   rating (same fields: `rating` 1-5, `comment` nullable; enrolled students only, 403 otherwise;
+   **404** `You have not rated this course yet.` / `…this instructor yet.`; 200 `{ message, data: rating }`).
+   `PUT` replaces the rating, so leaving out `comment` clears it.
+   `GET /api/courses/{id}/ratings` and `GET /api/instructors/{id}/ratings` add `data.my_rating`: the
+   token holder's rating (same item shape as `data.ratings[]`), or `null` for guests, invalid tokens,
+   non-students and students who haven't rated. The token is optional (`$request->user('sanctum')`).
+2. **Stripe return pages:** to fix in the React app (read `course_id`); the backend is unchanged.
+3. **Password reset link** uses `FRONTEND_URL` (`config('app.frontend_url')`), not `APP_URL`.
 
 ## feature/local-dev-setup
 
@@ -102,7 +117,10 @@ ancestor `244773e`:
 | POST | `/api/student/lessons/{id}/complete` | student | Idempotent; enrolled students only (403 otherwise) |
 | DELETE | `/api/student/lessons/{id}/complete` | student | Undo; same response shape with `completed: false` |
 | POST | `/api/auth/change-password` | any role | `current_password`, `password`, `password_confirmation`; wrong current password → 422. Upstream's `PUT` with `new_password`/`new_password_confirmation` also works |
-| GET | `/api/stats` | public | `students` (not deleted), `courses` (published), `instructors` (active), `lessons` (of published courses) |
+| GET | `/api/stats` | public | `{ message, data: { students, courses, instructors, lessons } }`: students not deleted, published courses, active instructors, lessons of published courses |
+| GET | `/api/admin/stats` | admin | `{ message, data: { users_by_role_and_status, courses_by_status, pending_instructor_requests, pending_courses } }`. Every role/status and course status is listed (0 when empty), each group with a `total`; pending instructor requests use the same filter as `GET /api/admin/instructor-requests` |
+| PUT | `/api/student/courses/{id}/rate` | student | Change my course rating (decision 1) |
+| PUT | `/api/student/courses/{id}/rate-instructor` | student | Change my rating of the course's instructor (decision 1) |
 
 ### Keys added to existing responses (nothing renamed or removed)
 
@@ -117,14 +135,18 @@ ancestor `244773e`:
   array). Each item also has `enrolled_at`, `last_lesson_id`, `progress`.
 - `GET /api/courses/{id}/ratings`, `GET /api/instructors/{id}/ratings`: keep
   `course_id`/`instructor_profile_id`, `average_rating`, `ratings_count`; add
-  `message` and `data { average, count, ratings[] }`.
+  `message` and `data { average, count, ratings[], my_rating }`.
 - `PUT /api/student/profile`, `PUT /api/instructor/profile`: keep `user`; add `data`
   (same shape as `GET /api/auth/profile`).
 
 ### Behaviour changes (worth a look from the frontend)
 
-- Rating a course or instructor a second time now **updates** the rating (200)
-  instead of returning 409.
+- Rating a course or instructor a second time returns **409** (as upstream); use the new `PUT`
+  endpoints to change a rating.
+- Every missing model looked up by id (`findOrFail`) returns **404** `{ "message": "<Model> not found." }`
+  (for example `User not found.`, `Course not found.`) instead of Laravel's
+  `No query results for model [App\Models\…]`. `GET /api/admin/users/{id}` for a missing user
+  returned a **500** and now returns this 404. Unknown routes keep Laravel's default 404 JSON.
 - Some "not found" responses returned HTTP 200 and now return **404** (same body):
   admin approve/reject course, instructor course by id, submit, retry video,
   section lessons, lesson by id, update lesson, update section.
@@ -172,6 +194,9 @@ The statuses are defined in `app/Enums/Course/CourseStatus.php`; the
   to alias.
 
 ## Migrations (in order)
+
+The ratings `PUT` endpoints, `my_rating`, admin stats and 404 handling need no new
+migration. The list below matches `database/migrations/`.
 
 1. `0001_01_01_000000_create_users_table`
 2. `0001_01_01_000001_create_cache_table`

@@ -5,9 +5,11 @@ namespace Tests\Feature;
 use App\Enums\Course\CourseStatus;
 use App\Models\Course;
 use App\Models\User;
+use App\Notifications\ResetPasswordNotification;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Notification;
 use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Facades\URL;
 use Illuminate\Support\Str;
@@ -247,8 +249,120 @@ class ApiExamplesTest extends TestCase
             $tokens['student']
         )->assertCreated();
 
+        $this->record(
+            'Rate a course a second time (409, use PUT to change it)',
+            'POST',
+            "/api/student/courses/{$freeCourse->id}/rate",
+            ['rating' => 3],
+            $tokens['student']
+        )->assertStatus(409);
+
+        $this->record(
+            'Update my course rating',
+            'PUT',
+            "/api/student/courses/{$freeCourse->id}/rate",
+            ['rating' => 4, 'comment' => 'Clear, a bit fast in places.'],
+            $tokens['student']
+        )->assertOk();
+
+        $this->record(
+            'Update a rating that does not exist yet (404)',
+            'PUT',
+            "/api/student/courses/{$freeCourse->id}/rate-instructor",
+            ['rating' => 5],
+            $tokens['student']
+        )->assertNotFound();
+
+        $this->record(
+            'Rate the instructor of a course',
+            'POST',
+            "/api/student/courses/{$freeCourse->id}/rate-instructor",
+            ['rating' => 5, 'comment' => 'Explains well.'],
+            $tokens['student']
+        )->assertCreated();
+
+        $this->record(
+            'Update my instructor rating',
+            'PUT',
+            "/api/student/courses/{$freeCourse->id}/rate-instructor",
+            ['rating' => 4, 'comment' => null],
+            $tokens['student']
+        )->assertOk();
+
+        $this->record('Course ratings (guest, my_rating is null)', 'GET', "/api/courses/{$freeCourse->id}/ratings")
+            ->assertOk();
+
+        $this->record('Course ratings (student token, with my_rating)', 'GET', "/api/courses/{$freeCourse->id}/ratings", token: $tokens['student'])
+            ->assertOk();
+
+        $this->record(
+            'Instructor ratings (student token, with my_rating)',
+            'GET',
+            "/api/instructors/{$freeCourse->instructor_profile_id}/ratings",
+            token: $tokens['student']
+        )->assertOk();
+
+        // --- Profiles -------------------------------------------------------
+        $this->record(
+            'Update the student profile (JSON)',
+            'PUT',
+            '/api/student/profile',
+            [
+                'first_name' => 'Maya',
+                'father_name' => 'Nabil',
+                'last_name' => 'Aziz',
+                'phone' => '0933111222',
+                'gender' => 'female',
+                'birthday' => '2001-02-03',
+            ],
+            $tokens['student']
+        )->assertOk();
+
+        $this->record(
+            'Update the instructor profile (multipart POST with _method=PUT)',
+            'POST',
+            '/api/instructor/profile',
+            [
+                '_method' => 'PUT',
+                'first_name' => 'Omar',
+                'father_name' => 'Tarek',
+                'last_name' => 'Saeed',
+                'phone' => '0933444555',
+                'gender' => 'male',
+                'birthday' => '1988-08-08',
+                'teaching_major' => 'software_engineering',
+                'bio' => 'Backend developer and teacher.',
+                'avatar' => UploadedFile::fake()->image('avatar.png'),
+            ],
+            $tokens['instructor'],
+            multipart: true
+        )->assertOk();
+
+        // --- Password reset ---------------------------------------------------
+        Notification::fake();
+
+        $this->record('Forgot password (sends the reset mail)', 'POST', '/api/auth/forgot-password', ['email' => $student->email])
+            ->assertOk();
+
+        Notification::assertSentTo($student, ResetPasswordNotification::class, function ($notification) use ($student) {
+            $url = $notification->toMail($student)->actionUrl;
+
+            $this->examples[array_key_last($this->examples)]['note'] =
+                'Link in the mail (token redacted): `'
+                .str_replace($notification->token, '<token>', $url).'`';
+
+            return true;
+        });
+
+        // --- Statistics and errors -----------------------------------------------
         $this->record('Platform statistics (public)', 'GET', '/api/stats')
             ->assertOk();
+
+        $this->record('Admin statistics', 'GET', '/api/admin/stats', token: $tokens['admin'])
+            ->assertOk();
+
+        $this->record('Missing record (404 for any missing model)', 'GET', '/api/admin/users/999', token: $tokens['admin'])
+            ->assertNotFound();
 
         if (getenv('API_EXAMPLES')) {
             $this->writeMarkdown(base_path('docs/API-EXAMPLES.md'));

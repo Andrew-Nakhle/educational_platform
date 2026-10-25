@@ -43,7 +43,20 @@ use `POST` with a `_method=PUT` field.
 23. [Course details (enrolled student)](#example-23-course-details) `GET /api/student/courses/1`
 24. [My courses](#example-24-my-courses) `GET /api/student/my-courses`
 25. [Rate a course](#example-25-rate-a-course) `POST /api/student/courses/1/rate`
-26. [Platform statistics (public)](#example-26-platform-statistics) `GET /api/stats`
+26. [Rate a course a second time (409, use PUT to change it)](#example-26-rate-a-course-a-second-time) `POST /api/student/courses/1/rate`
+27. [Update my course rating](#example-27-update-my-course-rating) `PUT /api/student/courses/1/rate`
+28. [Update a rating that does not exist yet (404)](#example-28-update-a-rating-that-does-not-exist-yet) `PUT /api/student/courses/1/rate-instructor`
+29. [Rate the instructor of a course](#example-29-rate-the-instructor-of-a-course) `POST /api/student/courses/1/rate-instructor`
+30. [Update my instructor rating](#example-30-update-my-instructor-rating) `PUT /api/student/courses/1/rate-instructor`
+31. [Course ratings (guest, my_rating is null)](#example-31-course-ratings) `GET /api/courses/1/ratings`
+32. [Course ratings (student token, with my_rating)](#example-32-course-ratings) `GET /api/courses/1/ratings`
+33. [Instructor ratings (student token, with my_rating)](#example-33-instructor-ratings) `GET /api/instructors/1/ratings`
+34. [Update the student profile (JSON)](#example-34-update-the-student-profile) `PUT /api/student/profile`
+35. [Update the instructor profile (multipart POST with _method=PUT)](#example-35-update-the-instructor-profile) `POST /api/instructor/profile`
+36. [Forgot password (sends the reset mail)](#example-36-forgot-password) `POST /api/auth/forgot-password`
+37. [Platform statistics (public)](#example-37-platform-statistics) `GET /api/stats`
+38. [Admin statistics](#example-38-admin-statistics) `GET /api/admin/stats`
+39. [Missing record (404 for any missing model)](#example-39-missing-record) `GET /api/admin/users/999`
 
 <a id="example-1-login"></a>
 ## 1. Login (admin)
@@ -1231,8 +1244,427 @@ Response `201`:
 }
 ```
 
-<a id="example-26-platform-statistics"></a>
-## 26. Platform statistics (public)
+<a id="example-26-rate-a-course-a-second-time"></a>
+## 26. Rate a course a second time (409, use PUT to change it)
+
+`POST /api/student/courses/1/rate`
+
+- Auth: `Authorization: Bearer <token>`
+- Body (JSON):
+
+```json
+{
+    "rating": 3
+}
+```
+
+Response `409`:
+
+```json
+{
+    "message": "You have already rated this course."
+}
+```
+
+<a id="example-27-update-my-course-rating"></a>
+## 27. Update my course rating
+
+`PUT /api/student/courses/1/rate`
+
+- Auth: `Authorization: Bearer <token>`
+- Body (JSON):
+
+```json
+{
+    "rating": 4,
+    "comment": "Clear, a bit fast in places."
+}
+```
+
+Response `200`:
+
+```json
+{
+    "message": "Course rating updated successfully.",
+    "data": {
+        "id": 1,
+        "user_id": 3,
+        "course_id": 1,
+        "rating": 4,
+        "comment": "Clear, a bit fast in places.",
+        "created_at": "2026-10-24T10:00:00.000000Z",
+        "updated_at": "2026-10-24T10:00:00.000000Z"
+    }
+}
+```
+
+<a id="example-28-update-a-rating-that-does-not-exist-yet"></a>
+## 28. Update a rating that does not exist yet (404)
+
+`PUT /api/student/courses/1/rate-instructor`
+
+- Auth: `Authorization: Bearer <token>`
+- Body (JSON):
+
+```json
+{
+    "rating": 5
+}
+```
+
+Response `404`:
+
+```json
+{
+    "message": "You have not rated this instructor yet."
+}
+```
+
+<a id="example-29-rate-the-instructor-of-a-course"></a>
+## 29. Rate the instructor of a course
+
+`POST /api/student/courses/1/rate-instructor`
+
+- Auth: `Authorization: Bearer <token>`
+- Body (JSON):
+
+```json
+{
+    "rating": 5,
+    "comment": "Explains well."
+}
+```
+
+Response `201`:
+
+```json
+{
+    "message": "Instructor rated successfully.",
+    "data": {
+        "user_id": 3,
+        "instructor_profile_id": 1,
+        "rating": 5,
+        "comment": "Explains well.",
+        "updated_at": "2026-10-24T10:00:00.000000Z",
+        "created_at": "2026-10-24T10:00:00.000000Z",
+        "id": 1
+    }
+}
+```
+
+<a id="example-30-update-my-instructor-rating"></a>
+## 30. Update my instructor rating
+
+`PUT /api/student/courses/1/rate-instructor`
+
+- Auth: `Authorization: Bearer <token>`
+- Body (JSON):
+
+```json
+{
+    "rating": 4,
+    "comment": null
+}
+```
+
+Response `200`:
+
+```json
+{
+    "message": "Instructor rating updated successfully.",
+    "data": {
+        "id": 1,
+        "user_id": 3,
+        "instructor_profile_id": 1,
+        "rating": 4,
+        "comment": null,
+        "created_at": "2026-10-24T10:00:00.000000Z",
+        "updated_at": "2026-10-24T10:00:00.000000Z"
+    }
+}
+```
+
+<a id="example-31-course-ratings"></a>
+## 31. Course ratings (guest, my_rating is null)
+
+`GET /api/courses/1/ratings`
+
+- Auth: none
+
+Response `200`:
+
+```json
+{
+    "course_id": 1,
+    "average_rating": 4,
+    "ratings_count": 1,
+    "message": "Course ratings retrieved successfully.",
+    "data": {
+        "average": 4,
+        "count": 1,
+        "ratings": [
+            {
+                "id": 1,
+                "rating": 4,
+                "comment": "Clear, a bit fast in places.",
+                "student": {
+                    "first_name": "Lina",
+                    "last_name": "Haddad"
+                },
+                "created_at": "2026-10-24T10:00:00.000000Z"
+            }
+        ],
+        "my_rating": null
+    }
+}
+```
+
+<a id="example-32-course-ratings"></a>
+## 32. Course ratings (student token, with my_rating)
+
+`GET /api/courses/1/ratings`
+
+- Auth: `Authorization: Bearer <token>`
+
+Response `200`:
+
+```json
+{
+    "course_id": 1,
+    "average_rating": 4,
+    "ratings_count": 1,
+    "message": "Course ratings retrieved successfully.",
+    "data": {
+        "average": 4,
+        "count": 1,
+        "ratings": [
+            {
+                "id": 1,
+                "rating": 4,
+                "comment": "Clear, a bit fast in places.",
+                "student": {
+                    "first_name": "Lina",
+                    "last_name": "Haddad"
+                },
+                "created_at": "2026-10-24T10:00:00.000000Z"
+            }
+        ],
+        "my_rating": {
+            "id": 1,
+            "rating": 4,
+            "comment": "Clear, a bit fast in places.",
+            "student": {
+                "first_name": "Lina",
+                "last_name": "Haddad"
+            },
+            "created_at": "2026-10-24T10:00:00.000000Z"
+        }
+    }
+}
+```
+
+<a id="example-33-instructor-ratings"></a>
+## 33. Instructor ratings (student token, with my_rating)
+
+`GET /api/instructors/1/ratings`
+
+- Auth: `Authorization: Bearer <token>`
+
+Response `200`:
+
+```json
+{
+    "instructor_profile_id": 1,
+    "average_rating": 4,
+    "ratings_count": 1,
+    "message": "Instructor ratings retrieved successfully.",
+    "data": {
+        "average": 4,
+        "count": 1,
+        "ratings": [
+            {
+                "id": 1,
+                "rating": 4,
+                "comment": null,
+                "student": {
+                    "first_name": "Lina",
+                    "last_name": "Haddad"
+                },
+                "created_at": "2026-10-24T10:00:00.000000Z"
+            }
+        ],
+        "my_rating": {
+            "id": 1,
+            "rating": 4,
+            "comment": null,
+            "student": {
+                "first_name": "Lina",
+                "last_name": "Haddad"
+            },
+            "created_at": "2026-10-24T10:00:00.000000Z"
+        }
+    }
+}
+```
+
+<a id="example-34-update-the-student-profile"></a>
+## 34. Update the student profile (JSON)
+
+`PUT /api/student/profile`
+
+- Auth: `Authorization: Bearer <token>`
+- Body (JSON):
+
+```json
+{
+    "first_name": "Maya",
+    "father_name": "Nabil",
+    "last_name": "Aziz",
+    "phone": "0933111222",
+    "gender": "female",
+    "birthday": "2001-02-03"
+}
+```
+
+Response `200`:
+
+```json
+{
+    "message": "Student profile updated successfully.",
+    "user": {
+        "id": 3,
+        "phone": "0933111222",
+        "email": "student@example.test",
+        "gender": "female",
+        "age": 25,
+        "role": "student",
+        "status": "active",
+        "profile": {
+            "type": "student",
+            "id": 1,
+            "first_name": "Maya",
+            "father_name": "Nabil",
+            "last_name": "Aziz",
+            "avatar": null
+        }
+    },
+    "data": {
+        "id": 3,
+        "phone": "0933111222",
+        "email": "student@example.test",
+        "gender": "female",
+        "age": 25,
+        "role": "student",
+        "status": "active",
+        "profile": {
+            "type": "student",
+            "id": 1,
+            "first_name": "Maya",
+            "father_name": "Nabil",
+            "last_name": "Aziz",
+            "avatar": null
+        }
+    }
+}
+```
+
+<a id="example-35-update-the-instructor-profile"></a>
+## 35. Update the instructor profile (multipart POST with _method=PUT)
+
+`POST /api/instructor/profile`
+
+- Auth: `Authorization: Bearer <token>`
+- Body (multipart/form-data):
+
+```json
+{
+    "_method": "PUT",
+    "first_name": "Omar",
+    "father_name": "Tarek",
+    "last_name": "Saeed",
+    "phone": "0933444555",
+    "gender": "male",
+    "birthday": "1988-08-08",
+    "teaching_major": "software_engineering",
+    "bio": "Backend developer and teacher.",
+    "avatar": "<file: avatar.png>"
+}
+```
+
+Response `200`:
+
+```json
+{
+    "message": "Instructor profile updated successfully.",
+    "user": {
+        "id": 2,
+        "phone": "0933444555",
+        "email": "instructor@example.test",
+        "gender": "male",
+        "age": 38,
+        "role": "instructor",
+        "status": "active",
+        "profile": {
+            "type": "instructor",
+            "id": 1,
+            "first_name": "Omar",
+            "father_name": "Tarek",
+            "last_name": "Saeed",
+            "avatar": "https://api.example.test/instructors/avatars/example14xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx.png?expiration=1792837800",
+            "teaching_major": "software_engineering",
+            "bio": "Backend developer and teacher.",
+            "certifications": []
+        }
+    },
+    "data": {
+        "id": 2,
+        "phone": "0933444555",
+        "email": "instructor@example.test",
+        "gender": "male",
+        "age": 38,
+        "role": "instructor",
+        "status": "active",
+        "profile": {
+            "type": "instructor",
+            "id": 1,
+            "first_name": "Omar",
+            "father_name": "Tarek",
+            "last_name": "Saeed",
+            "avatar": "https://api.example.test/instructors/avatars/example14xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx.png?expiration=1792837800",
+            "teaching_major": "software_engineering",
+            "bio": "Backend developer and teacher.",
+            "certifications": []
+        }
+    }
+}
+```
+
+<a id="example-36-forgot-password"></a>
+## 36. Forgot password (sends the reset mail)
+
+`POST /api/auth/forgot-password`
+
+- Auth: none
+- Body (JSON):
+
+```json
+{
+    "email": "student@example.test"
+}
+```
+
+Response `200`:
+
+```json
+{
+    "message": "If the email is registered, a password reset link will be sent."
+}
+```
+
+Link in the mail (token redacted): `https://frontend.example.test/reset-password?token=<token>&email=student%40example.test`
+
+<a id="example-37-platform-statistics"></a>
+## 37. Platform statistics (public)
 
 `GET /api/stats`
 
@@ -1249,5 +1681,73 @@ Response `200`:
         "instructors": 1,
         "lessons": 3
     }
+}
+```
+
+<a id="example-38-admin-statistics"></a>
+## 38. Admin statistics
+
+`GET /api/admin/stats`
+
+- Auth: `Authorization: Bearer <token>`
+
+Response `200`:
+
+```json
+{
+    "message": "Admin statistics retrieved successfully.",
+    "data": {
+        "users_by_role_and_status": {
+            "admin": {
+                "active": 1,
+                "inactive": 0,
+                "blocked": 0,
+                "deleted": 0,
+                "pending": 0,
+                "total": 1
+            },
+            "instructor": {
+                "active": 1,
+                "inactive": 0,
+                "blocked": 0,
+                "deleted": 0,
+                "pending": 0,
+                "total": 1
+            },
+            "student": {
+                "active": 1,
+                "inactive": 1,
+                "blocked": 0,
+                "deleted": 0,
+                "pending": 0,
+                "total": 2
+            }
+        },
+        "courses_by_status": {
+            "draft": 0,
+            "pending_publish": 0,
+            "published": 3,
+            "rejected": 1,
+            "archived": 0,
+            "total": 4
+        },
+        "pending_instructor_requests": 0,
+        "pending_courses": 0
+    }
+}
+```
+
+<a id="example-39-missing-record"></a>
+## 39. Missing record (404 for any missing model)
+
+`GET /api/admin/users/999`
+
+- Auth: `Authorization: Bearer <token>`
+
+Response `404`:
+
+```json
+{
+    "message": "User not found."
 }
 ```
