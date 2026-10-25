@@ -7,6 +7,7 @@
 | `main` | `upstream/main` (170d889) | Fast-forwarded, pushed to `origin` |
 | `feature/local-dev-setup` | `main` | Synced with upstream, pushed to `origin` |
 | `feature/mvp-endpoints-1` | `feature/local-dev-setup` | Synced with upstream, pushed to `origin` |
+| `feature/mvp-endpoints-2` | `feature/mvp-endpoints-1` | Pagination, reject reasons, contact form, reorder; pushed to `origin` |
 
 Run the tests with `php artisan test` (in-memory SQLite, faked upload disk, faked
 Stripe HTTP client; no external services). Real request/response examples are in
@@ -179,6 +180,66 @@ PHP does not parse `multipart/form-data` bodies on `PUT`. Send file uploads as
 The statuses are defined in `app/Enums/Course/CourseStatus.php`; the
 "pending" status is `pending_publish`.
 
+## feature/mvp-endpoints-2
+
+Everything here is additive: no URL, method or existing key was changed or removed.
+Checked against upstream first: upstream only validates `page`/`per_page` on the student
+catalog (it doesn't apply `per_page` or return `meta`) and already has forgot/reset password.
+None of the items below exist upstream.
+
+### Pagination (`?page=`)
+
+`GET /api/student/courses`, `GET /api/instructor/courses` and `GET /api/admin/courses`:
+
+- **Without `page`:** exactly today's response. Student: `{ message, data }`, 12 per page,
+  and `per_page` is ignored. Instructor and admin: `{ courses: [...] }` with every matching course.
+- **With `page`:** `{ message, data: [...], meta: { current_page, last_page, total, per_page } }`.
+  `per_page` is 1-50, defaulting to 12 (student) or 15 (instructor/admin). Newest first, with `id`
+  as tie-breaker. Filters (`status`, `category_id`, `search`) still apply. Invalid values → 422.
+
+### Keys added to course objects
+
+| Key | Where | Value |
+|---|---|---|
+| `students_count` | Instructor list/details, admin list/details | Number of enrollments |
+| `instructor.avatar` / `.teaching_major` / `.bio` | Every course object | Signed avatar URL (or null), enum value, text. Never email or phone |
+| `reject_reason` | Instructor's own list (`/instructor/courses`) and details (`/instructor/courses/{id}`) | Reason given by the admin, or null |
+
+### Reject reasons
+
+- `PATCH /api/admin/courses/{id}/reject` and `PATCH /api/admin/instructor-requests/{id}/reject`
+  accept an optional `reason` (string, max 500; longer → 422). The responses are unchanged:
+  `{ message, status }` for a course, `{ message }` for an instructor.
+- Course: stored in `courses.reject_reason`; approving a course clears it.
+- Instructor: stored in `instructor_profiles.reject_reason`. Every user object for an instructor
+  has `reject_reason` next to `status`: login, `GET /api/auth/profile`, the admin user endpoints,
+  and the approve response. It's `null` unless rejected. Students and admins don't get the key. Approving the
+  application, or setting the user back to `active` with `PATCH /api/admin/users/{id}/status`,
+  clears it. A rejected instructor is `inactive`; login still works, but the
+  instructor routes return the existing 403 for inactive users.
+
+### Contact form
+
+| Method | Path | Auth | Response |
+|---|---|---|---|
+| POST | `/api/contact` | public, 5 requests/minute per IP (429 after) | 201 `{ message }`. `name` ≤ 100, `email` (valid, ≤ 255), `message` ≤ 5000, all required |
+| GET | `/api/admin/contact-messages` | admin | `{ message, data, meta }`, newest first; `page`, `per_page` (≤ 50, default 15), `unread=1` |
+| PATCH | `/api/admin/contact-messages/{id}/read` | admin | `{ message, data }`; idempotent (keeps the first `read_at`); 404 `Contact message not found.` |
+
+Items: `id`, `name`, `email`, `message`, `is_read`, `read_at`, `created_at`.
+
+### Reorder
+
+| Method | Path | Body |
+|---|---|---|
+| PATCH | `/api/instructor/courses/{id}/sections/reorder` | `{ ids: [sectionId, ...] }` |
+| PATCH | `/api/instructor/sections/{id}/lessons/reorder` | `{ ids: [lessonId, ...] }` |
+
+- `ids` must list **every** section of the course (or lesson of the section) exactly once.
+  Missing, extra, foreign, unknown or duplicate ids → 422 (`errors.ids`), and nothing is changed.
+- `sort_order` becomes 1..n in the given order, inside a transaction. Response: `{ message }`.
+- Owner only (403 otherwise); a missing course or section → 404.
+
 ## Open points
 
 - **Restore** always returns a course to `draft`, not to the status before
@@ -196,7 +257,9 @@ The statuses are defined in `app/Enums/Course/CourseStatus.php`; the
 ## Migrations (in order)
 
 The ratings `PUT` endpoints, `my_rating`, admin stats and 404 handling need no new
-migration. The list below matches `database/migrations/`.
+migration. `feature/mvp-endpoints-2` adds 20 and 21. Both are additive: two nullable
+columns and one new table. They have only been run in the test database, not
+against any shared or production database. The list below matches `database/migrations/`.
 
 1. `0001_01_01_000000_create_users_table`
 2. `0001_01_01_000001_create_cache_table`
@@ -217,3 +280,7 @@ migration. The list below matches `database/migrations/`.
 17. `2026_10_19_185406_create_instructor_reviews_table`
 18. `2026_10_23_201648_create_lesson_progress_table` (upstream; skips if the table exists)
 19. `2026_10_24_124020_create_password_reset_tokens_table` (upstream; skips if the table exists)
+20. `2026_10_26_100000_add_reject_reason_to_courses_and_instructor_profiles` (mvp-endpoints-2;
+    nullable `reject_reason` varchar(500) on `courses` and `instructor_profiles`)
+21. `2026_10_26_100100_create_contact_messages_table` (mvp-endpoints-2; `name`, `email`,
+    `message`, nullable `read_at`, timestamps)

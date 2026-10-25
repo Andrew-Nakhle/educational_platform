@@ -35,28 +35,40 @@ use `POST` with a `_method=PUT` field.
 15. [List courses (admin)](#example-15-list-courses) `GET /api/admin/courses`
 16. [Course by id (admin)](#example-16-course-by-id) `GET /api/admin/courses/1`
 17. [Approve a course (admin)](#example-17-approve-a-course) `PATCH /api/admin/courses/4/approve`
-18. [Reject a course (admin)](#example-18-reject-a-course) `PATCH /api/admin/courses/3/reject`
-19. [Course details (guest, no token)](#example-19-course-details) `GET /api/student/courses/1`
-20. [Enroll in a FREE course](#example-20-enroll-in-a-free-course) `POST /api/student/courses/1/enroll`
-21. [Enroll in a PAID course (web, Stripe Checkout; Stripe is faked)](#example-21-enroll-in-a-paid-course) `POST /api/student/courses/2/enroll`
-22. [Mark a lesson as completed](#example-22-mark-a-lesson-as-completed) `POST /api/student/lessons/1/complete`
-23. [Course details (enrolled student)](#example-23-course-details) `GET /api/student/courses/1`
-24. [My courses](#example-24-my-courses) `GET /api/student/my-courses`
-25. [Rate a course](#example-25-rate-a-course) `POST /api/student/courses/1/rate`
-26. [Rate a course a second time (409, use PUT to change it)](#example-26-rate-a-course-a-second-time) `POST /api/student/courses/1/rate`
-27. [Update my course rating](#example-27-update-my-course-rating) `PUT /api/student/courses/1/rate`
-28. [Update a rating that does not exist yet (404)](#example-28-update-a-rating-that-does-not-exist-yet) `PUT /api/student/courses/1/rate-instructor`
-29. [Rate the instructor of a course](#example-29-rate-the-instructor-of-a-course) `POST /api/student/courses/1/rate-instructor`
-30. [Update my instructor rating](#example-30-update-my-instructor-rating) `PUT /api/student/courses/1/rate-instructor`
-31. [Course ratings (guest, my_rating is null)](#example-31-course-ratings) `GET /api/courses/1/ratings`
-32. [Course ratings (student token, with my_rating)](#example-32-course-ratings) `GET /api/courses/1/ratings`
-33. [Instructor ratings (student token, with my_rating)](#example-33-instructor-ratings) `GET /api/instructors/1/ratings`
-34. [Update the student profile (JSON)](#example-34-update-the-student-profile) `PUT /api/student/profile`
-35. [Update the instructor profile (multipart POST with _method=PUT)](#example-35-update-the-instructor-profile) `POST /api/instructor/profile`
-36. [Forgot password (sends the reset mail)](#example-36-forgot-password) `POST /api/auth/forgot-password`
-37. [Platform statistics (public)](#example-37-platform-statistics) `GET /api/stats`
-38. [Admin statistics](#example-38-admin-statistics) `GET /api/admin/stats`
-39. [Missing record (404 for any missing model)](#example-39-missing-record) `GET /api/admin/users/999`
+18. [Reject a course with an optional reason (admin)](#example-18-reject-a-course-with-an-optional-reason) `PATCH /api/admin/courses/3/reject`
+19. [Rejected course with reject_reason (instructor, own course)](#example-19-rejected-course-with-reject-reason) `GET /api/instructor/courses/3`
+20. [Course details (guest, no token)](#example-20-course-details) `GET /api/student/courses/1`
+21. [Enroll in a FREE course](#example-21-enroll-in-a-free-course) `POST /api/student/courses/1/enroll`
+22. [Enroll in a PAID course (web, Stripe Checkout; Stripe is faked)](#example-22-enroll-in-a-paid-course) `POST /api/student/courses/2/enroll`
+23. [Mark a lesson as completed](#example-23-mark-a-lesson-as-completed) `POST /api/student/lessons/1/complete`
+24. [Course details (enrolled student)](#example-24-course-details) `GET /api/student/courses/1`
+25. [My courses](#example-25-my-courses) `GET /api/student/my-courses`
+26. [Rate a course](#example-26-rate-a-course) `POST /api/student/courses/1/rate`
+27. [Rate a course a second time (409, use PUT to change it)](#example-27-rate-a-course-a-second-time) `POST /api/student/courses/1/rate`
+28. [Update my course rating](#example-28-update-my-course-rating) `PUT /api/student/courses/1/rate`
+29. [Update a rating that does not exist yet (404)](#example-29-update-a-rating-that-does-not-exist-yet) `PUT /api/student/courses/1/rate-instructor`
+30. [Rate the instructor of a course](#example-30-rate-the-instructor-of-a-course) `POST /api/student/courses/1/rate-instructor`
+31. [Update my instructor rating](#example-31-update-my-instructor-rating) `PUT /api/student/courses/1/rate-instructor`
+32. [Course ratings (guest, my_rating is null)](#example-32-course-ratings) `GET /api/courses/1/ratings`
+33. [Course ratings (student token, with my_rating)](#example-33-course-ratings) `GET /api/courses/1/ratings`
+34. [Instructor ratings (student token, with my_rating)](#example-34-instructor-ratings) `GET /api/instructors/1/ratings`
+35. [Update the student profile (JSON)](#example-35-update-the-student-profile) `PUT /api/student/profile`
+36. [Update the instructor profile (multipart POST with _method=PUT)](#example-36-update-the-instructor-profile) `POST /api/instructor/profile`
+37. [Forgot password (sends the reset mail)](#example-37-forgot-password) `POST /api/auth/forgot-password`
+38. [Platform statistics (public)](#example-38-platform-statistics) `GET /api/stats`
+39. [Admin statistics](#example-39-admin-statistics) `GET /api/admin/stats`
+40. [Missing record (404 for any missing model)](#example-40-missing-record) `GET /api/admin/users/999`
+41. [Course catalog, paginated](#example-41-course-catalog-paginated) `GET /api/student/courses`
+42. [My courses (instructor), paginated](#example-42-my-courses) `GET /api/instructor/courses`
+43. [List courses (admin), paginated](#example-43-list-courses) `GET /api/admin/courses`
+44. [Reject an instructor application with an optional reason (admin)](#example-44-reject-an-instructor-application-with-an-optional-reason) `PATCH /api/admin/instructor-requests/5/reject`
+45. [Login (rejected instructor, with reject_reason)](#example-45-login) `POST /api/auth/login`
+46. [Send a contact message (public, 5 per minute)](#example-46-send-a-contact-message) `POST /api/contact`
+47. [Contact messages (admin)](#example-47-contact-messages) `GET /api/admin/contact-messages`
+48. [Mark a contact message as read (admin)](#example-48-mark-a-contact-message-as-read) `PATCH /api/admin/contact-messages/1/read`
+49. [Reorder the sections of a course (instructor)](#example-49-reorder-the-sections-of-a-course) `PATCH /api/instructor/courses/1/sections/reorder`
+50. [Reorder the lessons of a section (instructor)](#example-50-reorder-the-lessons-of-a-section) `PATCH /api/instructor/sections/1/lessons/reorder`
+51. [Reorder with ids that are not exactly the section lessons (422)](#example-51-reorder-with-ids-that-are-not-exactly-the-section-lessons) `PATCH /api/instructor/sections/1/lessons/reorder`
 
 <a id="example-1-login"></a>
 ## 1. Login (admin)
@@ -122,6 +134,7 @@ Response `200`:
         "age": 31,
         "role": "instructor",
         "status": "active",
+        "reject_reason": null,
         "profile": {
             "type": "instructor",
             "id": 1,
@@ -254,7 +267,10 @@ Response `201`:
             "id": 1,
             "first_name": "Khaled",
             "father_name": "Samir",
-            "last_name": "Nasser"
+            "last_name": "Nasser",
+            "avatar": "https://api.example.test/instructors/avatars/example.png?expiration=1792837800",
+            "teaching_major": "computer_science",
+            "bio": "Backend developer and teacher."
         },
         "rating_average": null,
         "ratings_count": 0
@@ -294,8 +310,13 @@ Response `200`:
                 "id": 1,
                 "first_name": "Khaled",
                 "father_name": "Samir",
-                "last_name": "Nasser"
+                "last_name": "Nasser",
+                "avatar": "https://api.example.test/instructors/avatars/example.png?expiration=1792837800",
+                "teaching_major": "computer_science",
+                "bio": "Backend developer and teacher."
             },
+            "students_count": 0,
+            "reject_reason": null,
             "rating_average": null,
             "ratings_count": 0
         },
@@ -319,8 +340,13 @@ Response `200`:
                 "id": 1,
                 "first_name": "Khaled",
                 "father_name": "Samir",
-                "last_name": "Nasser"
+                "last_name": "Nasser",
+                "avatar": "https://api.example.test/instructors/avatars/example.png?expiration=1792837800",
+                "teaching_major": "computer_science",
+                "bio": "Backend developer and teacher."
             },
+            "students_count": 0,
+            "reject_reason": null,
             "rating_average": null,
             "ratings_count": 0
         },
@@ -344,8 +370,13 @@ Response `200`:
                 "id": 1,
                 "first_name": "Khaled",
                 "father_name": "Samir",
-                "last_name": "Nasser"
+                "last_name": "Nasser",
+                "avatar": "https://api.example.test/instructors/avatars/example.png?expiration=1792837800",
+                "teaching_major": "computer_science",
+                "bio": "Backend developer and teacher."
             },
+            "students_count": 0,
+            "reject_reason": null,
             "rating_average": null,
             "ratings_count": 0
         },
@@ -369,8 +400,13 @@ Response `200`:
                 "id": 1,
                 "first_name": "Khaled",
                 "father_name": "Samir",
-                "last_name": "Nasser"
+                "last_name": "Nasser",
+                "avatar": "https://api.example.test/instructors/avatars/example.png?expiration=1792837800",
+                "teaching_major": "computer_science",
+                "bio": "Backend developer and teacher."
             },
+            "students_count": 0,
+            "reject_reason": null,
             "rating_average": null,
             "ratings_count": 0
         }
@@ -409,8 +445,13 @@ Response `200`:
             "id": 1,
             "first_name": "Khaled",
             "father_name": "Samir",
-            "last_name": "Nasser"
+            "last_name": "Nasser",
+            "avatar": "https://api.example.test/instructors/avatars/example.png?expiration=1792837800",
+            "teaching_major": "computer_science",
+            "bio": "Backend developer and teacher."
         },
+        "students_count": 0,
+        "reject_reason": null,
         "rating_average": null,
         "ratings_count": 0
     }
@@ -457,7 +498,10 @@ Response `200`:
             "id": 1,
             "first_name": "Khaled",
             "father_name": "Samir",
-            "last_name": "Nasser"
+            "last_name": "Nasser",
+            "avatar": "https://api.example.test/instructors/avatars/example.png?expiration=1792837800",
+            "teaching_major": "computer_science",
+            "bio": "Backend developer and teacher."
         },
         "rating_average": null,
         "ratings_count": 0
@@ -582,6 +626,7 @@ Response `200`:
             "age": 31,
             "role": "instructor",
             "status": "active",
+            "reject_reason": null,
             "profile": {
                 "type": "instructor",
                 "id": 1,
@@ -729,8 +774,12 @@ Response `200`:
                 "id": 1,
                 "first_name": "Khaled",
                 "father_name": "Samir",
-                "last_name": "Nasser"
+                "last_name": "Nasser",
+                "avatar": "https://api.example.test/instructors/avatars/example.png?expiration=1792837800",
+                "teaching_major": "computer_science",
+                "bio": "Backend developer and teacher."
             },
+            "students_count": 0,
             "rating_average": null,
             "ratings_count": 0
         },
@@ -754,8 +803,12 @@ Response `200`:
                 "id": 1,
                 "first_name": "Khaled",
                 "father_name": "Samir",
-                "last_name": "Nasser"
+                "last_name": "Nasser",
+                "avatar": "https://api.example.test/instructors/avatars/example.png?expiration=1792837800",
+                "teaching_major": "computer_science",
+                "bio": "Backend developer and teacher."
             },
+            "students_count": 0,
             "rating_average": null,
             "ratings_count": 0
         }
@@ -794,8 +847,12 @@ Response `200`:
             "id": 1,
             "first_name": "Khaled",
             "father_name": "Samir",
-            "last_name": "Nasser"
+            "last_name": "Nasser",
+            "avatar": "https://api.example.test/instructors/avatars/example.png?expiration=1792837800",
+            "teaching_major": "computer_science",
+            "bio": "Backend developer and teacher."
         },
+        "students_count": 0,
         "rating_average": null,
         "ratings_count": 0,
         "sections": [
@@ -846,12 +903,19 @@ Response `200`:
 }
 ```
 
-<a id="example-18-reject-a-course"></a>
-## 18. Reject a course (admin)
+<a id="example-18-reject-a-course-with-an-optional-reason"></a>
+## 18. Reject a course with an optional reason (admin)
 
 `PATCH /api/admin/courses/3/reject`
 
 - Auth: `Authorization: Bearer <token>`
+- Body (JSON):
+
+```json
+{
+    "reason": "The audio in section 2 is too quiet."
+}
+```
 
 Response `200`:
 
@@ -862,8 +926,52 @@ Response `200`:
 }
 ```
 
-<a id="example-19-course-details"></a>
-## 19. Course details (guest, no token)
+<a id="example-19-rejected-course-with-reject-reason"></a>
+## 19. Rejected course with reject_reason (instructor, own course)
+
+`GET /api/instructor/courses/3`
+
+- Auth: `Authorization: Bearer <token>`
+
+Response `200`:
+
+```json
+{
+    "course": {
+        "id": 3,
+        "title": "Draft Ideas",
+        "description": "Build REST APIs with Laravel.",
+        "price": "0.00",
+        "thumbnail": "https://api.example.test/courses/thumbnails/example.png?expiration=1792896000",
+        "language": "English",
+        "difficulty_level": "easy",
+        "what_you_will_learn": "Routing, Eloquent and testing.",
+        "status": "rejected",
+        "duration_hours": null,
+        "is_enrolled": false,
+        "category": {
+            "id": 1,
+            "name": "Programming"
+        },
+        "instructor": {
+            "id": 1,
+            "first_name": "Khaled",
+            "father_name": "Samir",
+            "last_name": "Nasser",
+            "avatar": "https://api.example.test/instructors/avatars/example.png?expiration=1792837800",
+            "teaching_major": "computer_science",
+            "bio": "Backend developer and teacher."
+        },
+        "students_count": 0,
+        "reject_reason": "The audio in section 2 is too quiet.",
+        "rating_average": null,
+        "ratings_count": 0
+    }
+}
+```
+
+<a id="example-20-course-details"></a>
+## 20. Course details (guest, no token)
 
 `GET /api/student/courses/1`
 
@@ -894,7 +1002,10 @@ Response `200`:
             "id": 1,
             "first_name": "Khaled",
             "father_name": "Samir",
-            "last_name": "Nasser"
+            "last_name": "Nasser",
+            "avatar": "https://api.example.test/instructors/avatars/example.png?expiration=1792837800",
+            "teaching_major": "computer_science",
+            "bio": "Backend developer and teacher."
         },
         "rating_average": null,
         "ratings_count": 0,
@@ -928,8 +1039,8 @@ Response `200`:
 }
 ```
 
-<a id="example-20-enroll-in-a-free-course"></a>
-## 20. Enroll in a FREE course
+<a id="example-21-enroll-in-a-free-course"></a>
+## 21. Enroll in a FREE course
 
 `POST /api/student/courses/1/enroll`
 
@@ -958,8 +1069,8 @@ Response `201`:
 }
 ```
 
-<a id="example-21-enroll-in-a-paid-course"></a>
-## 21. Enroll in a PAID course (web, Stripe Checkout; Stripe is faked)
+<a id="example-22-enroll-in-a-paid-course"></a>
+## 22. Enroll in a PAID course (web, Stripe Checkout; Stripe is faked)
 
 `POST /api/student/courses/2/enroll`
 
@@ -986,8 +1097,8 @@ Redirect URLs sent to Stripe:
 - success_url: `https://frontend.example.test/payment/success?course_id=2&session_id={CHECKOUT_SESSION_ID}`
 - cancel_url: `https://frontend.example.test/payment/cancel?course_id=2`
 
-<a id="example-22-mark-a-lesson-as-completed"></a>
-## 22. Mark a lesson as completed
+<a id="example-23-mark-a-lesson-as-completed"></a>
+## 23. Mark a lesson as completed
 
 `POST /api/student/lessons/1/complete`
 
@@ -1011,8 +1122,8 @@ Response `200`:
 }
 ```
 
-<a id="example-23-course-details"></a>
-## 23. Course details (enrolled student)
+<a id="example-24-course-details"></a>
+## 24. Course details (enrolled student)
 
 `GET /api/student/courses/1`
 
@@ -1043,7 +1154,10 @@ Response `200`:
             "id": 1,
             "first_name": "Khaled",
             "father_name": "Samir",
-            "last_name": "Nasser"
+            "last_name": "Nasser",
+            "avatar": "https://api.example.test/instructors/avatars/example.png?expiration=1792837800",
+            "teaching_major": "computer_science",
+            "bio": "Backend developer and teacher."
         },
         "rating_average": null,
         "ratings_count": 0,
@@ -1077,8 +1191,8 @@ Response `200`:
 }
 ```
 
-<a id="example-24-my-courses"></a>
-## 24. My courses
+<a id="example-25-my-courses"></a>
+## 25. My courses
 
 `GET /api/student/my-courses`
 
@@ -1110,7 +1224,10 @@ Response `200`:
                 "id": 1,
                 "first_name": "Khaled",
                 "father_name": "Samir",
-                "last_name": "Nasser"
+                "last_name": "Nasser",
+                "avatar": "https://api.example.test/instructors/avatars/example.png?expiration=1792837800",
+                "teaching_major": "computer_science",
+                "bio": "Backend developer and teacher."
             },
             "rating_average": null,
             "ratings_count": 0,
@@ -1170,7 +1287,10 @@ Response `200`:
                 "id": 1,
                 "first_name": "Khaled",
                 "father_name": "Samir",
-                "last_name": "Nasser"
+                "last_name": "Nasser",
+                "avatar": "https://api.example.test/instructors/avatars/example.png?expiration=1792837800",
+                "teaching_major": "computer_science",
+                "bio": "Backend developer and teacher."
             },
             "rating_average": null,
             "ratings_count": 0,
@@ -1212,8 +1332,8 @@ Response `200`:
 }
 ```
 
-<a id="example-25-rate-a-course"></a>
-## 25. Rate a course
+<a id="example-26-rate-a-course"></a>
+## 26. Rate a course
 
 `POST /api/student/courses/1/rate`
 
@@ -1244,8 +1364,8 @@ Response `201`:
 }
 ```
 
-<a id="example-26-rate-a-course-a-second-time"></a>
-## 26. Rate a course a second time (409, use PUT to change it)
+<a id="example-27-rate-a-course-a-second-time"></a>
+## 27. Rate a course a second time (409, use PUT to change it)
 
 `POST /api/student/courses/1/rate`
 
@@ -1266,8 +1386,8 @@ Response `409`:
 }
 ```
 
-<a id="example-27-update-my-course-rating"></a>
-## 27. Update my course rating
+<a id="example-28-update-my-course-rating"></a>
+## 28. Update my course rating
 
 `PUT /api/student/courses/1/rate`
 
@@ -1298,8 +1418,8 @@ Response `200`:
 }
 ```
 
-<a id="example-28-update-a-rating-that-does-not-exist-yet"></a>
-## 28. Update a rating that does not exist yet (404)
+<a id="example-29-update-a-rating-that-does-not-exist-yet"></a>
+## 29. Update a rating that does not exist yet (404)
 
 `PUT /api/student/courses/1/rate-instructor`
 
@@ -1320,8 +1440,8 @@ Response `404`:
 }
 ```
 
-<a id="example-29-rate-the-instructor-of-a-course"></a>
-## 29. Rate the instructor of a course
+<a id="example-30-rate-the-instructor-of-a-course"></a>
+## 30. Rate the instructor of a course
 
 `POST /api/student/courses/1/rate-instructor`
 
@@ -1352,8 +1472,8 @@ Response `201`:
 }
 ```
 
-<a id="example-30-update-my-instructor-rating"></a>
-## 30. Update my instructor rating
+<a id="example-31-update-my-instructor-rating"></a>
+## 31. Update my instructor rating
 
 `PUT /api/student/courses/1/rate-instructor`
 
@@ -1384,8 +1504,8 @@ Response `200`:
 }
 ```
 
-<a id="example-31-course-ratings"></a>
-## 31. Course ratings (guest, my_rating is null)
+<a id="example-32-course-ratings"></a>
+## 32. Course ratings (guest, my_rating is null)
 
 `GET /api/courses/1/ratings`
 
@@ -1419,8 +1539,8 @@ Response `200`:
 }
 ```
 
-<a id="example-32-course-ratings"></a>
-## 32. Course ratings (student token, with my_rating)
+<a id="example-33-course-ratings"></a>
+## 33. Course ratings (student token, with my_rating)
 
 `GET /api/courses/1/ratings`
 
@@ -1463,8 +1583,8 @@ Response `200`:
 }
 ```
 
-<a id="example-33-instructor-ratings"></a>
-## 33. Instructor ratings (student token, with my_rating)
+<a id="example-34-instructor-ratings"></a>
+## 34. Instructor ratings (student token, with my_rating)
 
 `GET /api/instructors/1/ratings`
 
@@ -1507,8 +1627,8 @@ Response `200`:
 }
 ```
 
-<a id="example-34-update-the-student-profile"></a>
-## 34. Update the student profile (JSON)
+<a id="example-35-update-the-student-profile"></a>
+## 35. Update the student profile (JSON)
 
 `PUT /api/student/profile`
 
@@ -1568,8 +1688,8 @@ Response `200`:
 }
 ```
 
-<a id="example-35-update-the-instructor-profile"></a>
-## 35. Update the instructor profile (multipart POST with _method=PUT)
+<a id="example-36-update-the-instructor-profile"></a>
+## 36. Update the instructor profile (multipart POST with _method=PUT)
 
 `POST /api/instructor/profile`
 
@@ -1604,6 +1724,7 @@ Response `200`:
         "age": 38,
         "role": "instructor",
         "status": "active",
+        "reject_reason": null,
         "profile": {
             "type": "instructor",
             "id": 1,
@@ -1624,6 +1745,7 @@ Response `200`:
         "age": 38,
         "role": "instructor",
         "status": "active",
+        "reject_reason": null,
         "profile": {
             "type": "instructor",
             "id": 1,
@@ -1639,8 +1761,8 @@ Response `200`:
 }
 ```
 
-<a id="example-36-forgot-password"></a>
-## 36. Forgot password (sends the reset mail)
+<a id="example-37-forgot-password"></a>
+## 37. Forgot password (sends the reset mail)
 
 `POST /api/auth/forgot-password`
 
@@ -1663,8 +1785,8 @@ Response `200`:
 
 Link in the mail (token redacted): `https://frontend.example.test/reset-password?token=<token>&email=student%40example.test`
 
-<a id="example-37-platform-statistics"></a>
-## 37. Platform statistics (public)
+<a id="example-38-platform-statistics"></a>
+## 38. Platform statistics (public)
 
 `GET /api/stats`
 
@@ -1684,8 +1806,8 @@ Response `200`:
 }
 ```
 
-<a id="example-38-admin-statistics"></a>
-## 38. Admin statistics
+<a id="example-39-admin-statistics"></a>
+## 39. Admin statistics
 
 `GET /api/admin/stats`
 
@@ -1737,8 +1859,8 @@ Response `200`:
 }
 ```
 
-<a id="example-39-missing-record"></a>
-## 39. Missing record (404 for any missing model)
+<a id="example-40-missing-record"></a>
+## 40. Missing record (404 for any missing model)
 
 `GET /api/admin/users/999`
 
@@ -1749,5 +1871,474 @@ Response `404`:
 ```json
 {
     "message": "User not found."
+}
+```
+
+<a id="example-41-course-catalog-paginated"></a>
+## 41. Course catalog, paginated
+
+`GET /api/student/courses?page=1&per_page=2`
+
+- Auth: none
+
+Response `200`:
+
+```json
+{
+    "message": "Courses retrieved successfully.",
+    "data": [
+        {
+            "id": 4,
+            "title": "Testing Laravel APIs (2nd edition)",
+            "description": "Feature tests for REST APIs.",
+            "price": "35.50",
+            "thumbnail": "https://api.example.test/courses/thumbnails/example12xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx.png?expiration=1792896000",
+            "language": "English",
+            "difficulty_level": "medium",
+            "what_you_will_learn": "HTTP tests, factories and fakes.",
+            "status": "published",
+            "duration_hours": null,
+            "is_enrolled": false,
+            "category": {
+                "id": 1,
+                "name": "Programming"
+            },
+            "instructor": {
+                "id": 1,
+                "first_name": "Omar",
+                "father_name": "Tarek",
+                "last_name": "Saeed",
+                "avatar": "https://api.example.test/instructors/avatars/example14xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx.png?expiration=1792837800",
+                "teaching_major": "software_engineering",
+                "bio": "Backend developer and teacher."
+            },
+            "rating_average": null,
+            "ratings_count": 0
+        },
+        {
+            "id": 2,
+            "title": "Advanced Eloquent",
+            "description": "Build REST APIs with Laravel.",
+            "price": "49.99",
+            "thumbnail": "https://api.example.test/courses/thumbnails/example.png?expiration=1792896000",
+            "language": "English",
+            "difficulty_level": "hard",
+            "what_you_will_learn": "Routing, Eloquent and testing.",
+            "status": "published",
+            "duration_hours": null,
+            "is_enrolled": false,
+            "category": {
+                "id": 1,
+                "name": "Programming"
+            },
+            "instructor": {
+                "id": 1,
+                "first_name": "Omar",
+                "father_name": "Tarek",
+                "last_name": "Saeed",
+                "avatar": "https://api.example.test/instructors/avatars/example14xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx.png?expiration=1792837800",
+                "teaching_major": "software_engineering",
+                "bio": "Backend developer and teacher."
+            },
+            "rating_average": null,
+            "ratings_count": 0
+        }
+    ],
+    "meta": {
+        "current_page": 1,
+        "last_page": 2,
+        "total": 3,
+        "per_page": 2
+    }
+}
+```
+
+<a id="example-42-my-courses"></a>
+## 42. My courses (instructor), paginated
+
+`GET /api/instructor/courses?page=1&per_page=2`
+
+- Auth: `Authorization: Bearer <token>`
+
+Response `200`:
+
+```json
+{
+    "message": "Courses retrieved successfully.",
+    "data": [
+        {
+            "id": 4,
+            "title": "Testing Laravel APIs (2nd edition)",
+            "description": "Feature tests for REST APIs.",
+            "price": "35.50",
+            "thumbnail": "https://api.example.test/courses/thumbnails/example12xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx.png?expiration=1792896000",
+            "language": "English",
+            "difficulty_level": "medium",
+            "what_you_will_learn": "HTTP tests, factories and fakes.",
+            "status": "published",
+            "duration_hours": null,
+            "is_enrolled": false,
+            "category": {
+                "id": 1,
+                "name": "Programming"
+            },
+            "instructor": {
+                "id": 1,
+                "first_name": "Omar",
+                "father_name": "Tarek",
+                "last_name": "Saeed",
+                "avatar": "https://api.example.test/instructors/avatars/example14xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx.png?expiration=1792837800",
+                "teaching_major": "software_engineering",
+                "bio": "Backend developer and teacher."
+            },
+            "students_count": 0,
+            "reject_reason": null,
+            "rating_average": null,
+            "ratings_count": 0
+        },
+        {
+            "id": 3,
+            "title": "Draft Ideas",
+            "description": "Build REST APIs with Laravel.",
+            "price": "0.00",
+            "thumbnail": "https://api.example.test/courses/thumbnails/example.png?expiration=1792896000",
+            "language": "English",
+            "difficulty_level": "easy",
+            "what_you_will_learn": "Routing, Eloquent and testing.",
+            "status": "rejected",
+            "duration_hours": null,
+            "is_enrolled": false,
+            "category": {
+                "id": 1,
+                "name": "Programming"
+            },
+            "instructor": {
+                "id": 1,
+                "first_name": "Omar",
+                "father_name": "Tarek",
+                "last_name": "Saeed",
+                "avatar": "https://api.example.test/instructors/avatars/example14xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx.png?expiration=1792837800",
+                "teaching_major": "software_engineering",
+                "bio": "Backend developer and teacher."
+            },
+            "students_count": 0,
+            "reject_reason": "The audio in section 2 is too quiet.",
+            "rating_average": null,
+            "ratings_count": 0
+        }
+    ],
+    "meta": {
+        "current_page": 1,
+        "last_page": 2,
+        "total": 4,
+        "per_page": 2
+    }
+}
+```
+
+<a id="example-43-list-courses"></a>
+## 43. List courses (admin), paginated
+
+`GET /api/admin/courses?page=2&per_page=2`
+
+- Auth: `Authorization: Bearer <token>`
+
+Response `200`:
+
+```json
+{
+    "message": "Courses retrieved successfully.",
+    "data": [
+        {
+            "id": 2,
+            "title": "Advanced Eloquent",
+            "description": "Build REST APIs with Laravel.",
+            "price": "49.99",
+            "thumbnail": "https://api.example.test/courses/thumbnails/example.png?expiration=1792896000",
+            "language": "English",
+            "difficulty_level": "hard",
+            "what_you_will_learn": "Routing, Eloquent and testing.",
+            "status": "published",
+            "duration_hours": null,
+            "is_enrolled": false,
+            "category": {
+                "id": 1,
+                "name": "Programming"
+            },
+            "instructor": {
+                "id": 1,
+                "first_name": "Omar",
+                "father_name": "Tarek",
+                "last_name": "Saeed",
+                "avatar": "https://api.example.test/instructors/avatars/example14xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx.png?expiration=1792837800",
+                "teaching_major": "software_engineering",
+                "bio": "Backend developer and teacher."
+            },
+            "students_count": 0,
+            "rating_average": null,
+            "ratings_count": 0
+        },
+        {
+            "id": 1,
+            "title": "Laravel Basics",
+            "description": "Build REST APIs with Laravel.",
+            "price": "0.00",
+            "thumbnail": "https://api.example.test/courses/thumbnails/example.png?expiration=1792896000",
+            "language": "English",
+            "difficulty_level": "easy",
+            "what_you_will_learn": "Routing, Eloquent and testing.",
+            "status": "published",
+            "duration_hours": null,
+            "is_enrolled": false,
+            "category": {
+                "id": 1,
+                "name": "Programming"
+            },
+            "instructor": {
+                "id": 1,
+                "first_name": "Omar",
+                "father_name": "Tarek",
+                "last_name": "Saeed",
+                "avatar": "https://api.example.test/instructors/avatars/example14xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx.png?expiration=1792837800",
+                "teaching_major": "software_engineering",
+                "bio": "Backend developer and teacher."
+            },
+            "students_count": 1,
+            "rating_average": 4,
+            "ratings_count": 1
+        }
+    ],
+    "meta": {
+        "current_page": 2,
+        "last_page": 2,
+        "total": 4,
+        "per_page": 2
+    }
+}
+```
+
+<a id="example-44-reject-an-instructor-application-with-an-optional-reason"></a>
+## 44. Reject an instructor application with an optional reason (admin)
+
+`PATCH /api/admin/instructor-requests/5/reject`
+
+- Auth: `Authorization: Bearer <token>`
+- Body (JSON):
+
+```json
+{
+    "reason": "The uploaded certificate is not readable."
+}
+```
+
+Response `200`:
+
+```json
+{
+    "message": "Instructor application rejected successfully."
+}
+```
+
+<a id="example-45-login"></a>
+## 45. Login (rejected instructor, with reject_reason)
+
+`POST /api/auth/login`
+
+- Auth: none
+- Body (JSON):
+
+```json
+{
+    "email": "applicant@example.test",
+    "password": "secret-password"
+}
+```
+
+Response `200`:
+
+```json
+{
+    "message": "Login successful.",
+    "user": {
+        "id": 5,
+        "phone": "0900000005",
+        "email": "applicant@example.test",
+        "gender": "male",
+        "age": 31,
+        "role": "instructor",
+        "status": "inactive",
+        "reject_reason": "The uploaded certificate is not readable.",
+        "profile": {
+            "type": "instructor",
+            "id": 2,
+            "first_name": "Nour",
+            "father_name": "Samir",
+            "last_name": "Hamdan",
+            "avatar": "https://api.example.test/instructors/avatars/example.png?expiration=1792837800",
+            "teaching_major": "computer_science",
+            "bio": "Backend developer and teacher.",
+            "certifications": []
+        }
+    },
+    "token": "<token>"
+}
+```
+
+<a id="example-46-send-a-contact-message"></a>
+## 46. Send a contact message (public, 5 per minute)
+
+`POST /api/contact`
+
+- Auth: none
+- Body (JSON):
+
+```json
+{
+    "name": "Sara Khalil",
+    "email": "sara@example.test",
+    "message": "Do you offer group discounts?"
+}
+```
+
+Response `201`:
+
+```json
+{
+    "message": "Your message has been sent."
+}
+```
+
+<a id="example-47-contact-messages"></a>
+## 47. Contact messages (admin)
+
+`GET /api/admin/contact-messages`
+
+- Auth: `Authorization: Bearer <token>`
+
+Response `200`:
+
+```json
+{
+    "message": "Contact messages retrieved successfully.",
+    "data": [
+        {
+            "id": 1,
+            "name": "Sara Khalil",
+            "email": "sara@example.test",
+            "message": "Do you offer group discounts?",
+            "is_read": false,
+            "read_at": null,
+            "created_at": "2026-10-24T10:00:00.000000Z"
+        }
+    ],
+    "meta": {
+        "current_page": 1,
+        "last_page": 1,
+        "total": 1,
+        "per_page": 15
+    }
+}
+```
+
+<a id="example-48-mark-a-contact-message-as-read"></a>
+## 48. Mark a contact message as read (admin)
+
+`PATCH /api/admin/contact-messages/1/read`
+
+- Auth: `Authorization: Bearer <token>`
+
+Response `200`:
+
+```json
+{
+    "message": "Contact message marked as read.",
+    "data": {
+        "id": 1,
+        "name": "Sara Khalil",
+        "email": "sara@example.test",
+        "message": "Do you offer group discounts?",
+        "is_read": true,
+        "read_at": "2026-10-24T10:00:00.000000Z",
+        "created_at": "2026-10-24T10:00:00.000000Z"
+    }
+}
+```
+
+<a id="example-49-reorder-the-sections-of-a-course"></a>
+## 49. Reorder the sections of a course (instructor)
+
+`PATCH /api/instructor/courses/1/sections/reorder`
+
+- Auth: `Authorization: Bearer <token>`
+- Body (JSON):
+
+```json
+{
+    "ids": [
+        3,
+        1
+    ]
+}
+```
+
+Response `200`:
+
+```json
+{
+    "message": "Sections reordered successfully."
+}
+```
+
+<a id="example-50-reorder-the-lessons-of-a-section"></a>
+## 50. Reorder the lessons of a section (instructor)
+
+`PATCH /api/instructor/sections/1/lessons/reorder`
+
+- Auth: `Authorization: Bearer <token>`
+- Body (JSON):
+
+```json
+{
+    "ids": [
+        2,
+        1
+    ]
+}
+```
+
+Response `200`:
+
+```json
+{
+    "message": "Lessons reordered successfully."
+}
+```
+
+<a id="example-51-reorder-with-ids-that-are-not-exactly-the-section-lessons"></a>
+## 51. Reorder with ids that are not exactly the section lessons (422)
+
+`PATCH /api/instructor/sections/1/lessons/reorder`
+
+- Auth: `Authorization: Bearer <token>`
+- Body (JSON):
+
+```json
+{
+    "ids": [
+        1
+    ]
+}
+```
+
+Response `422`:
+
+```json
+{
+    "message": "The ids must list every lesson of this section exactly once.",
+    "errors": {
+        "ids": [
+            "The ids must list every lesson of this section exactly once."
+        ]
+    }
 }
 ```

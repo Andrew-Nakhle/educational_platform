@@ -3,6 +3,8 @@
 namespace Tests\Feature;
 
 use App\Enums\Course\CourseStatus;
+use App\Enums\User\UserStatus;
+use App\Models\ContactMessage;
 use App\Models\Course;
 use App\Models\User;
 use App\Notifications\ResetPasswordNotification;
@@ -199,8 +201,20 @@ class ApiExamplesTest extends TestCase
         $this->record('Approve a course (admin)', 'PATCH', "/api/admin/courses/{$newCourseId}/approve", token: $tokens['admin'])
             ->assertOk();
 
-        $this->record('Reject a course (admin)', 'PATCH', "/api/admin/courses/{$toReject->id}/reject", token: $tokens['admin'])
-            ->assertOk();
+        $this->record(
+            'Reject a course with an optional reason (admin)',
+            'PATCH',
+            "/api/admin/courses/{$toReject->id}/reject",
+            ['reason' => 'The audio in section 2 is too quiet.'],
+            $tokens['admin']
+        )->assertOk();
+
+        $this->record(
+            'Rejected course with reject_reason (instructor, own course)',
+            'GET',
+            "/api/instructor/courses/{$toReject->id}",
+            token: $tokens['instructor']
+        )->assertOk();
 
         // --- Student -----------------------------------------------------------
         $this->record('Course details (guest, no token)', 'GET', "/api/student/courses/{$freeCourse->id}")
@@ -364,6 +378,82 @@ class ApiExamplesTest extends TestCase
         $this->record('Missing record (404 for any missing model)', 'GET', '/api/admin/users/999', token: $tokens['admin'])
             ->assertNotFound();
 
+        // --- Paginated course lists (?page=) -----------------------------------------
+        $this->record('Course catalog, paginated', 'GET', '/api/student/courses?page=1&per_page=2')
+            ->assertOk();
+
+        $this->record('My courses (instructor), paginated', 'GET', '/api/instructor/courses?page=1&per_page=2', token: $tokens['instructor'])
+            ->assertOk();
+
+        $this->record('List courses (admin), paginated', 'GET', '/api/admin/courses?page=2&per_page=2', token: $tokens['admin'])
+            ->assertOk();
+
+        // --- Instructor application rejected with a reason ---------------------------
+        $applicant = $this->makeInstructor(
+            ['email' => 'applicant@example.test', 'phone' => '0900000005', 'status' => UserStatus::PENDING],
+            ['first_name' => 'Nour', 'last_name' => 'Hamdan']
+        );
+
+        $this->record(
+            'Reject an instructor application with an optional reason (admin)',
+            'PATCH',
+            "/api/admin/instructor-requests/{$applicant->id}/reject",
+            ['reason' => 'The uploaded certificate is not readable.'],
+            $tokens['admin']
+        )->assertOk();
+
+        $this->record(
+            'Login (rejected instructor, with reject_reason)',
+            'POST',
+            '/api/auth/login',
+            ['email' => $applicant->email, 'password' => self::PASSWORD]
+        )->assertOk();
+
+        // --- Contact form ------------------------------------------------------------
+        $this->record(
+            'Send a contact message (public, 5 per minute)',
+            'POST',
+            '/api/contact',
+            ['name' => 'Sara Khalil', 'email' => 'sara@example.test', 'message' => 'Do you offer group discounts?'],
+        )->assertCreated();
+
+        $this->record('Contact messages (admin)', 'GET', '/api/admin/contact-messages', token: $tokens['admin'])
+            ->assertOk();
+
+        $contactId = ContactMessage::query()->value('id');
+
+        $this->record('Mark a contact message as read (admin)', 'PATCH', "/api/admin/contact-messages/{$contactId}/read", token: $tokens['admin'])
+            ->assertOk();
+
+        // --- Reorder -------------------------------------------------------------------
+        $secondSection = $this->makeSection($freeCourse, ['title' => 'Going further']);
+
+        $this->record(
+            'Reorder the sections of a course (instructor)',
+            'PATCH',
+            "/api/instructor/courses/{$freeCourse->id}/sections/reorder",
+            ['ids' => [$secondSection->id, $section->id]],
+            $tokens['instructor']
+        )->assertOk();
+
+        $lessonIds = $section->lessons()->orderBy('sort_order')->pluck('id')->all();
+
+        $this->record(
+            'Reorder the lessons of a section (instructor)',
+            'PATCH',
+            "/api/instructor/sections/{$section->id}/lessons/reorder",
+            ['ids' => array_reverse($lessonIds)],
+            $tokens['instructor']
+        )->assertOk();
+
+        $this->record(
+            'Reorder with ids that are not exactly the section lessons (422)',
+            'PATCH',
+            "/api/instructor/sections/{$section->id}/lessons/reorder",
+            ['ids' => [$lessonIds[0]]],
+            $tokens['instructor']
+        )->assertStatus(422);
+
         if (getenv('API_EXAMPLES')) {
             $this->writeMarkdown(base_path('docs/API-EXAMPLES.md'));
         }
@@ -383,6 +473,8 @@ class ApiExamplesTest extends TestCase
         // Auth::attempt() in login, no leftover headers.
         $this->app['session']->driver()->flush();
         $this->app['auth']->forgetGuards();
+        // auth:sanctum switches the default guard (and its config value).
+        $this->app['auth']->shouldUse('web');
         $this->flushHeaders();
 
         $headers = ['Accept' => 'application/json'];
