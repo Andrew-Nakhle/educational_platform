@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Enums\Course\VideoStatus;
 use App\Http\Requests\Instructor\ReorderRequest;
+use App\Http\Requests\Instructor\ReplaceLessonVideoRequest;
 use App\Http\Requests\Instructor\StoreLessonRequest;
 use App\Http\Requests\Instructor\UpdateLessonRequest;
 use App\Http\Resources\Course\LessonResource;
@@ -13,7 +14,9 @@ use App\Models\LessonVideo;
 use App\Models\Section;
 use App\Services\B2StorageService;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
+use Throwable;
 
 class LessonController extends Controller
 {
@@ -77,6 +80,86 @@ class LessonController extends Controller
         ], 201);
     }
 
+
+    // POST /instructor/lessons/{lessonId}/video (multipart, field: video)
+    public function replaceVideo(ReplaceLessonVideoRequest $request, int $lessonId)
+    {
+        $lesson = Lesson::with('section.course', 'video')
+            ->find($lessonId);
+
+        if (! $lesson) {
+            return response()->json([
+                'message' => 'Lesson not found.',
+            ], 404);
+        }
+
+        if (
+            (int) $lesson->section->course->instructor_profile_id
+            !== (int) $request->user()->instructorProfile?->id
+        ) {
+            return response()->json([
+                'message' => 'You are not authorized to update this lesson.',
+            ], 403);
+        }
+
+        if ($locked = $this->courseContentLocked($lesson->section->course)) {
+            return $locked;
+        }
+
+        $oldVideo = $lesson->video;
+        $oldSourcePath = $oldVideo?->source_path;
+        $oldHlsDirectory = $oldVideo?->playlist_path
+            ? dirname($oldVideo->playlist_path)
+            : null;
+
+        $sourcePath = $request->file('video')->store(
+            'lessons/source',
+            config('filesystems.upload_disk')
+        );
+
+        $lessonVideo = DB::transaction(function () use ($lesson, $sourcePath) {
+            $lesson->update([
+                'duration_seconds' => 0,
+            ]);
+
+            return $lesson->video()->updateOrCreate(
+                ['lesson_id' => $lesson->id],
+                [
+                    'source_path' => $sourcePath,
+                    'playlist_path' => null,
+                    'duration_seconds' => 0,
+                    'status' => VideoStatus::PROCESSING,
+                ]
+            );
+        });
+
+        /*
+         * Remove the old files before dispatching: the job writes the new
+         * HLS output to the same lessons/{id}/hls directory, and with the
+         * sync queue it runs immediately.
+         */
+        try {
+            if ($oldSourcePath && $oldSourcePath !== $sourcePath) {
+                $this->b2StorageService->deleteAllB2Versions($oldSourcePath);
+            }
+
+            if ($oldHlsDirectory) {
+                $this->b2StorageService->deleteAllB2Versions($oldHlsDirectory, true);
+            }
+        } catch (Throwable $e) {
+            Log::warning('Failed to delete the old lesson video files.', [
+                'lesson_id' => $lesson->id,
+                'error' => $e->getMessage(),
+            ]);
+        }
+
+        ProcessLessonVideo::dispatch($lessonVideo->id);
+
+        return response()->json([
+            'message' => 'Lesson video replaced successfully. Video processing started.',
+            'lesson' => new LessonResource($lesson->refresh()->load('video')),
+        ]);
+    }
 
     public function retryVideo(int $lessonVideoId)
     {

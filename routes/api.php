@@ -74,6 +74,7 @@ Route::prefix('instructor')->middleware(['auth:sanctum','role:instructor','user.
 
     Route::post('/sections/{sectionId}/lessons', [LessonController::class, 'createLesson']);
     Route::post('/lessons/{lessonVideoId}/video/retry', [LessonController::class, 'retryVideo']);
+    Route::post('/lessons/{lessonId}/video', [LessonController::class, 'replaceVideo']);
     Route::get('/sections/{sectionId}/lessons', [LessonController::class, 'getLessons']);//بجيب دروس السكشن
     Route::get('lessons/{lessonId}', [LessonController::class, 'getLessonById']);
     Route::put('/lessons/{lessonId}', [LessonController::class, 'updateLesson']);
