@@ -16,6 +16,7 @@ use App\Models\Course;
 use App\Models\InstructorProfile;
 use App\Models\Payment;
 use App\Models\User;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\DB;
 
 class AdminController extends Controller
@@ -41,6 +42,10 @@ class AdminController extends Controller
             $query->where('status', $validated['status']);
         }
 
+        if (filled($validated['search'] ?? null)) {
+            $this->applyUserSearch($query, $validated['search']);
+        }
+
         // With ?page= the response is the paginated {data, links, meta};
         // without it, the plain list as before.
         if ($request->has('page')) {
@@ -55,6 +60,30 @@ class AdminController extends Controller
         return UserResource::collection(
             $query->get()
         );
+    }
+
+    /**
+     * ?search=: every word must match the email or a name part (first,
+     * father or last name of the student or instructor profile),
+     * case-insensitively. LOWER() keeps it case-insensitive on PostgreSQL
+     * too; % and _ in the input are matched literally (escaped with "!",
+     * which, unlike a backslash, means the same in SQLite, MySQL and
+     * PostgreSQL string literals).
+     */
+    private function applyUserSearch(Builder $query, string $search): void
+    {
+        $words = preg_split('/\s+/', mb_strtolower(trim($search)), -1, PREG_SPLIT_NO_EMPTY);
+
+        foreach ($words as $word) {
+            $pattern = '%'.str_replace(['!', '%', '_'], ['!!', '!%', '!_'], $word).'%';
+            $like = fn ($q, string $column) => $q->orWhereRaw("LOWER({$column}) LIKE ? ESCAPE '!'", [$pattern]);
+            $names = fn ($profile) => $profile->where(fn ($q) => collect(['first_name', 'father_name', 'last_name'])
+                ->each(fn ($column) => $like($q, $column)));
+
+            $query->where(fn ($q) => $like($q, 'users.email')
+                ->orWhereHas('studentProfile', $names)
+                ->orWhereHas('instructorProfile', $names));
+        }
     }
 
     // GET /admin/payments, newest first; ?page= for {data, links, meta}.
