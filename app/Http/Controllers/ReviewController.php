@@ -37,27 +37,75 @@ class ReviewController extends Controller
             ], 403);
         }
 
-        // One rating per student per course: a second rating updates it.
-        $review = CourseReview::firstOrNew([
+        $exists = CourseReview::where('user_id', $request->user()->id)
+            ->where('course_id', $course->id)
+            ->exists();
+
+        if ($exists) {
+            return response()->json([
+                'message' => 'You have already rated this course.',
+            ], 409);
+        }
+
+        $review = CourseReview::create([
             'user_id' => $request->user()->id,
             'course_id' => $course->id,
+            ...$data,
         ]);
 
-        $isUpdate = $review->exists;
+        return response()->json([
+            'message' => 'Course rated successfully.',
+            'data' => $review,
+        ], 201);
+    }
 
-        $review->fill($data);
-        $review->save();
+    // Change the student's existing rating of a course.
+    public function updateCourseRating(StoreCourseReviewRequest $request, int $courseId)
+    {
+        $data = $request->validated();
+
+        $course = Course::find($courseId);
+        if (! $course) {
+            return response()->json([
+                'message' => 'Course not found.',
+            ], 404);
+        }
+
+        $enrolled = $request->user()
+            ->enrollments()
+            ->where('course_id', $course->id)
+            ->exists();
+
+        if (! $enrolled) {
+            return response()->json([
+                'message' => 'You must enroll in this course before rating it.',
+            ], 403);
+        }
+
+        $review = CourseReview::where('user_id', $request->user()->id)
+            ->where('course_id', $course->id)
+            ->first();
+
+        if (! $review) {
+            return response()->json([
+                'message' => 'You have not rated this course yet.',
+            ], 404);
+        }
+
+        // PUT replaces the rating: a missing comment clears it.
+        $review->update([
+            'comment' => null,
+            ...$data,
+        ]);
 
         return response()->json([
-            'message' => $isUpdate
-                ? 'Course rating updated successfully.'
-                : 'Course rated successfully.',
+            'message' => 'Course rating updated successfully.',
             'data' => $review,
-        ], $isUpdate ? 200 : 201);
+        ]);
     }
 
     // متوسط تقييمات كورس وعددها
-    public function getCourseRating(int $courseId)
+    public function getCourseRating(Request $request, int $courseId)
     {
        $course= Course::find($courseId);
        if (! $course) {
@@ -76,7 +124,7 @@ class ReviewController extends Controller
                 2
             ),
             'ratings_count' => (clone $reviews)->count(),
-            ...$this->ratingsPayload($reviews, 'Course ratings retrieved successfully.'),
+            ...$this->ratingsPayload($reviews, 'Course ratings retrieved successfully.', $request),
         ]);
     }
 
@@ -84,10 +132,20 @@ class ReviewController extends Controller
      * `message` and `data` keys shared by the course and instructor
      * ratings endpoints (added next to the original keys).
      */
-    private function ratingsPayload($reviews, string $message): array
+    private function ratingsPayload($reviews, string $message, Request $request): array
     {
         $count = (clone $reviews)->count();
         $average = (clone $reviews)->avg('rating');
+
+        // Optional token: the viewer's own rating, null for guests and
+        // non-students.
+        $user = $request->user('sanctum');
+        $myRating = $user !== null && $user->hasRole('student')
+            ? (clone $reviews)
+                ->with('user.studentProfile')
+                ->where('user_id', $user->id)
+                ->first()
+            : null;
 
         return [
             'message' => $message,
@@ -101,6 +159,7 @@ class ReviewController extends Controller
                         ->latest('id')
                         ->get()
                 ),
+                'my_rating' => $myRating ? new ReviewResource($myRating) : null,
             ],
         ];
     }
@@ -138,27 +197,87 @@ class ReviewController extends Controller
             ], 404);
         }
 
-        // One rating per student per instructor: a second rating updates it.
-        $review = InstructorReview::firstOrNew([
+        $exists = InstructorReview::where(
+            'user_id',
+            $request->user()->id
+        )
+            ->where('instructor_profile_id', $instructor->id)
+            ->exists();
+
+        if ($exists) {
+            return response()->json([
+                'message' => 'You have already rated this instructor.',
+            ], 409);
+        }
+
+        $review = InstructorReview::create([
             'user_id' => $request->user()->id,
             'instructor_profile_id' => $instructor->id,
+            ...$data,
         ]);
 
-        $isUpdate = $review->exists;
-
-        $review->fill($data);
-        $review->save();
 
         return response()->json([
-            'message' => $isUpdate
-                ? 'Instructor rating updated successfully.'
-                : 'Instructor rated successfully.',
+            'message' => 'Instructor rated successfully.',
             'data' => $review,
-        ], $isUpdate ? 200 : 201);
+        ], 201);
+    }
+
+    // Change the student's existing rating of a course's instructor.
+    public function updateInstructorRating(StoreInstructorReviewRequest $request, int $courseId)
+    {
+        $data = $request->validated();
+
+        $course = Course::with('instructorProfile')->find($courseId);
+        if (! $course) {
+            return response()->json([
+                'message' => 'Course not found.',
+            ], 404);
+        }
+
+        $enrolled = $request->user()
+            ->enrollments()
+            ->where('course_id', $course->id)
+            ->exists();
+
+        if (! $enrolled) {
+            return response()->json([
+                'message' => 'You must enroll in this course before rating its instructor.',
+            ], 403);
+        }
+
+        $instructor = $course->instructorProfile;
+
+        if (! $instructor) {
+            return response()->json([
+                'message' => 'Instructor not found for this course.',
+            ], 404);
+        }
+
+        $review = InstructorReview::where('user_id', $request->user()->id)
+            ->where('instructor_profile_id', $instructor->id)
+            ->first();
+
+        if (! $review) {
+            return response()->json([
+                'message' => 'You have not rated this instructor yet.',
+            ], 404);
+        }
+
+        // PUT replaces the rating: a missing comment clears it.
+        $review->update([
+            'comment' => null,
+            ...$data,
+        ]);
+
+        return response()->json([
+            'message' => 'Instructor rating updated successfully.',
+            'data' => $review,
+        ]);
     }
 
     // متوسط تقييمات أستاذ وعددها
-    public function getInstructorRating(int $instructorProfileId){
+    public function getInstructorRating(Request $request, int $instructorProfileId){
     $instructorProfile=InstructorProfile::find($instructorProfileId);
         if (!$instructorProfile) {
             return response()->json([
@@ -178,7 +297,7 @@ class ReviewController extends Controller
                 2
             ),
             'ratings_count' => (clone $reviews)->count(),
-            ...$this->ratingsPayload($reviews, 'Instructor ratings retrieved successfully.'),
+            ...$this->ratingsPayload($reviews, 'Instructor ratings retrieved successfully.', $request),
         ]);
     }
 }
