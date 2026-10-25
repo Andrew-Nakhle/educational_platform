@@ -13,6 +13,7 @@ use App\Http\Resources\Admin\PaymentResource;
 use App\Http\Resources\Auth\UserResource;
 use App\Http\Resources\Course\CourseResource;
 use App\Models\Course;
+use App\Models\InstructorProfile;
 use App\Models\Payment;
 use App\Models\User;
 use Illuminate\Support\Facades\DB;
@@ -288,8 +289,12 @@ if (!$course) {
                 'status' => UserStatus::INACTIVE,
             ]);
 
+            // Without a reason, a default one: reject_reason is what marks a
+            // rejected application (as opposed to a deactivated account).
             $user->instructorProfile?->update([
-                'reject_reason' => $request->validated()['reason'] ?? null,
+                'reject_reason' => filled($request->validated()['reason'] ?? null)
+                    ? $request->validated()['reason']
+                    : InstructorProfile::DEFAULT_REJECT_REASON,
             ]);
         });
 

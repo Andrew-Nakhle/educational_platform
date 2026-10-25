@@ -7,6 +7,11 @@ use Illuminate\Database\Eloquent\Model;
 
 class InstructorProfile extends Model
 {
+    /**
+     * Stored when an admin rejects an application without a reason, so the
+     * account stays recognisable as a rejected application (and can re-apply).
+     */
+    public const DEFAULT_REJECT_REASON = 'Rejected by admin';
 
     protected $fillable =['first_name', 'last_name','father_name', 'avatar', 'teaching_major', 'bio', 'reject_reason'];
     protected $casts=['teaching_major' => TeachingMajor::class];
