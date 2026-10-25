@@ -35,8 +35,9 @@ class CourseCatalogDetailsTest extends TestCase
             ->assertJsonPath('data.ratings_count', 0)
             ->assertJsonPath('data.sections.0.lessons.0.duration_seconds', 125);
 
+        // Upstream always sends `completed` (false unless enrolled).
         $lesson = $response->json('data.sections.0.lessons.0');
-        $this->assertArrayNotHasKey('completed', $lesson);
+        $this->assertFalse($lesson['completed']);
         $this->assertArrayNotHasKey('video_status', $lesson);
     }
 
@@ -74,7 +75,7 @@ class CourseCatalogDetailsTest extends TestCase
                 ->assertOk()
                 ->assertJsonPath('data.is_enrolled', false);
 
-            $this->assertArrayNotHasKey('completed', $response->json('data.sections.0.lessons.0'));
+            $this->assertFalse($response->json('data.sections.0.lessons.0.completed'));
         }
     }
 
@@ -149,7 +150,7 @@ class CourseCatalogDetailsTest extends TestCase
             ->assertJsonPath('course.sections.0.lessons.0.video_status', 'processing')
             ->assertJsonPath('course.sections.0.lessons.1.video_status', 'failed')
             ->assertJsonPath('course.ratings_count', 0)
-            ->assertJsonMissingPath('course.is_enrolled');
+            ->assertJsonPath('course.is_enrolled', false);
     }
 
     public function test_instructor_lesson_responses_expose_video_status(): void

@@ -11,27 +11,31 @@ return new class extends Migration
      */
     public function up(): void
     {
+        // Databases migrated from feature/mvp-endpoints-1 already have it
+        // (2026_10_24_100000_create_lesson_progress_table, now removed).
+        if (Schema::hasTable('lesson_progress')) {
+            return;
+        }
+
         Schema::create('lesson_progress', function (Blueprint $table) {
             $table->id();
 
             $table->foreignId('user_id')
-                ->constrained('users')
+                ->constrained()
                 ->cascadeOnDelete();
 
             $table->foreignId('lesson_id')
-                ->constrained('lessons')
+                ->constrained()
                 ->cascadeOnDelete();
 
-            $table->timestamp('completed_at');
+            $table->timestamp('completed_at')->nullable();
+
             $table->timestamps();
 
             $table->unique(['user_id', 'lesson_id']);
         });
     }
 
-    /**
-     * Reverse the migrations.
-     */
     public function down(): void
     {
         Schema::dropIfExists('lesson_progress');

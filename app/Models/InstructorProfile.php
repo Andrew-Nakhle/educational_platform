@@ -23,4 +23,8 @@ class InstructorProfile extends Model
     {
         return $this->hasMany(Course::class);
     }
+    public function reviews()
+    {
+        return $this->hasMany(InstructorReview::class);
+    }
 }

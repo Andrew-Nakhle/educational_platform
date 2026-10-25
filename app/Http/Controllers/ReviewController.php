@@ -17,11 +17,7 @@ class ReviewController extends Controller
     // تقييم كورس
     public function rateCourse(StoreCourseReviewRequest $request, int $courseId)
     {
-        $data = $request->validate([
-            'rating' => ['required', 'integer', 'between:1,5'],
-            'comment' => ['nullable', 'string', 'max:2000'],
-        ]);
-
+        $data = $request->validated();
         $course = Course::find($courseId);
         if (! $course) {
             return response()->json([
@@ -112,10 +108,7 @@ class ReviewController extends Controller
     // تقييم أستاذ من خلال كورس مسجل فيه الطالب
     public function rateInstructor(StoreInstructorReviewRequest $request, int $courseId)
     {
-        $data = $request->validate([
-            'rating' => ['required', 'integer', 'between:1,5'],
-            'comment' => ['nullable', 'string', 'max:2000'],
-        ]);
+        $data = $request->validated();
 
         $course = Course::with('instructorProfile')
             ->find($courseId);

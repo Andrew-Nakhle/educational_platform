@@ -22,7 +22,9 @@ class StripePaymentService implements PaymentProviderInterface
         $secret = config('services.stripe.secret');
 
         if (! is_string($secret) || $secret === '') {
-            throw new \RuntimeException('Stripe secret is not configured.');
+            throw new \RuntimeException(
+                'Stripe secret is not configured.'
+            );
         }
 
         return $this->stripe = new StripeClient($secret);
@@ -32,16 +34,12 @@ class StripePaymentService implements PaymentProviderInterface
         float $amount,
         string $currency,
         int $paymentId,
-        ?int $courseId = null
+        int $courseId
     ): array {
         $frontendUrl = rtrim(
             config('app.frontend_url', 'http://localhost:5173'),
             '/'
         );
-
-        $courseQuery = $courseId !== null
-            ? 'course_id=' . $courseId
-            : null;
 
         $session = $this->stripe()->checkout->sessions->create([
             'mode' => 'payment',
@@ -57,18 +55,19 @@ class StripePaymentService implements PaymentProviderInterface
             ]],
             'metadata' => [
                 'payment_id' => (string) $paymentId,
+                'course_id' => (string) $courseId,
             ],
             'payment_intent_data' => [
                 'metadata' => [
                     'payment_id' => (string) $paymentId,
+                    'course_id' => (string) $courseId,
                 ],
             ],
             'success_url' => $frontendUrl
-                . '/payment/success?'
-                . ($courseQuery ? $courseQuery . '&' : '')
-                . 'session_id={CHECKOUT_SESSION_ID}',
-            'cancel_url' => $frontendUrl . '/payment/cancel'
-                . ($courseQuery ? '?' . $courseQuery : ''),
+                . '/payment/success?course_id=' . $courseId
+                . '&session_id={CHECKOUT_SESSION_ID}',
+            'cancel_url' => $frontendUrl
+                . '/payment/cancel?course_id=' . $courseId,
         ]);
 
         return [
@@ -121,6 +120,7 @@ class StripePaymentService implements PaymentProviderInterface
             'status' => $intent->status,
         ];
     }
+
     public function expireCheckoutSessionIfOpen(
         string $sessionId
     ): array {

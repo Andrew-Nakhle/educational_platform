@@ -25,6 +25,17 @@ class GetCoursesRequest extends FormRequest
                 'string',
                 'max:100',
             ],
+            'page' => [
+                'sometimes',
+                'integer',
+                'min:1',
+            ],
+            'per_page' => [
+                'sometimes',
+                'integer',
+                'min:1',
+                'max:50',
+            ],
         ];
     }
 }

@@ -7,7 +7,6 @@ use App\Http\Controllers\CourseController;
 
 use App\Http\Controllers\InstructorController;
 use App\Http\Controllers\LessonController;
-use App\Http\Controllers\LessonProgressController;
 use App\Http\Controllers\PaymentController;
 use App\Http\Controllers\ReviewController;
 use App\Http\Controllers\SectionController;
@@ -15,6 +14,7 @@ use App\Http\Controllers\StatsController;
 use App\Http\Controllers\StudentController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
+use Illuminate\Support\Facades\Mail;
 
 Route::post('/payments/stripe/webhook', [PaymentController::class, 'webhook']);
 Route::prefix('student')->group(function () {
@@ -34,6 +34,9 @@ Route::prefix('auth')->group(function () {
     Route::post('/logout', [AuthController::class, 'logout'])->middleware('auth:sanctum');
     Route::post('/change-password', [AuthController::class, 'changePassword'])->middleware('auth:sanctum');
     Route::post('/register-instructor', [AuthController::class, 'registerInstructor',]);
+    Route::post('/forgot-password', [AuthController::class, 'forgotPassword',]);
+    Route::post('/reset-password', [AuthController::class, 'resetPassword',]);
+    Route::put('/change-password', [AuthController::class, 'changePassword',])->middleware('auth:sanctum');
 });
 //admin////
 Route::prefix('admin')->middleware(['auth:sanctum','role:admin',])->group(function () {
@@ -100,11 +103,11 @@ Route::prefix('student')->middleware(['auth:sanctum','role:student','user.status
 //    Route::get('/courses', [StudentController::class, 'getCourses',]);
 //    Route::get('/courses/{courseId}', [StudentController::class, 'showCourse']);
     Route::get('/lessons/{lessonId}/video', [StudentController::class, 'getLessonVideo']);
-    Route::post('/lessons/{lessonId}/complete', [LessonProgressController::class, 'complete']);
-    Route::delete('/lessons/{lessonId}/complete', [LessonProgressController::class, 'uncomplete']);
 //    Route::post('/courses/{courseId}/payment', [PaymentController::class, 'createPayment']);
     Route::post('/courses/{courseId}/rate', [ReviewController::class, 'rateCourse']);
     Route::post('/courses/{courseId}/rate-instructor', [ReviewController::class, 'rateInstructor']);
+    Route::post('/lessons/{lessonId}/complete', [StudentController::class, 'completeLesson']);
+    Route::delete('/lessons/{lessonId}/complete', [StudentController::class, 'uncompleteLesson']);
 
 
 });

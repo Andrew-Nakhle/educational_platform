@@ -23,9 +23,13 @@ class LessonResource extends JsonResource
             ),
 
             'video' => $this->whenLoaded('video', function () {
+                if (! $this->video) {
+                    return null;
+                }
+
                 return [
                     'id' => $this->video->id,
-                    'status' => $this->video->status->value,
+                    'status' => $this->video->status?->value,
                     'playlist_path' => $this->video->playlist_path,
                     'duration_seconds' => $this->video->duration_seconds,
                 ];

@@ -64,7 +64,7 @@ class LessonProgressTest extends TestCase
         foreach ([1, 2] as $attempt) {
             $this->deleteJson("/api/student/lessons/{$lesson->id}/complete")
                 ->assertOk()
-                ->assertJsonPath('message', 'Lesson marked as not completed.')
+                ->assertJsonPath('message', 'Lesson marked as incomplete.')
                 ->assertJsonPath('data.lesson_id', $lesson->id)
                 ->assertJsonPath('data.completed', false)
                 ->assertJsonPath('data.progress.completed_lessons', 0)

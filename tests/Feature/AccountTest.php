@@ -97,6 +97,33 @@ class AccountTest extends TestCase
     public function test_change_password_requires_authentication(): void
     {
         $this->postJson('/api/auth/change-password', [])->assertUnauthorized();
+        $this->putJson('/api/auth/change-password', [])->assertUnauthorized();
+    }
+
+    public function test_change_password_accepts_upstream_put_with_new_password(): void
+    {
+        $user = $this->makeStudent();
+
+        $this->actingAs($user, 'sanctum')
+            ->putJson('/api/auth/change-password', [
+                'current_password' => self::PASSWORD,
+                'new_password' => 'new-password-123',
+                'new_password_confirmation' => 'new-password-123',
+            ])
+            ->assertOk()
+            ->assertExactJson(['message' => 'Password changed successfully.']);
+
+        $this->assertTrue(Hash::check('new-password-123', $user->fresh()->password));
+    }
+
+    public function test_change_password_requires_a_new_password_field(): void
+    {
+        $this->actingAs($this->makeStudent(), 'sanctum')
+            ->putJson('/api/auth/change-password', [
+                'current_password' => self::PASSWORD,
+            ])
+            ->assertStatus(422)
+            ->assertJsonValidationErrors(['new_password', 'password']);
     }
 
     // --- profiles ---------------------------------------------------------
