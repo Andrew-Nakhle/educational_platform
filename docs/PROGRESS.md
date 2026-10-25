@@ -8,6 +8,7 @@
 | `feature/local-dev-setup` | `main` | Synced with upstream, pushed to `origin` |
 | `feature/mvp-endpoints-1` | `feature/local-dev-setup` | Synced with upstream, pushed to `origin` |
 | `feature/mvp-endpoints-2` | `feature/mvp-endpoints-1` | Pagination, reject reasons, contact form, reorder; pushed to `origin` |
+| `feature/mvp-endpoints-3` | `feature/mvp-endpoints-2` | Status rules, upload limits, replace video, instructor re-apply, teaching majors, admin payments/users lists, `my_rating`; pushed to `origin` |
 
 Run the tests with `php artisan test` (in-memory SQLite, faked upload disk, faked
 Stripe HTTP client; no external services). Real request/response examples are in
@@ -166,7 +167,7 @@ PHP does not parse `multipart/form-data` bodies on `PUT`. Send file uploads as
 `_method=PUT`, the profile fields and `avatar`. JSON updates without files can use
 `PUT` directly.
 
-### Course status flow (current behaviour, unchanged)
+### Course status flow (as of mvp-endpoints-1; see mvp-endpoints-3 for the current rules)
 
 | Action | Endpoint | From | To |
 |---|---|---|---|
@@ -240,13 +241,82 @@ Items: `id`, `name`, `email`, `message`, `is_read`, `read_at`, `created_at`.
 - `sort_order` becomes 1..n in the given order, inside a transaction. Response: `{ message }`.
 - Owner only (403 otherwise); a missing course or section → 404.
 
+## feature/mvp-endpoints-3
+
+Additive: no URL, method or existing key was changed or removed. The behaviour changes are the
+new status rules (422s where the API used to allow the change) and the new upload limits.
+No new migrations.
+
+### Course status rules (enforced on the server)
+
+| Action | Allowed when the course is | Otherwise |
+|---|---|---|
+| submit `POST /instructor/courses/{id}/submit` | `draft` or `rejected` | 422 `Only draft or rejected courses can be submitted for publishing.` |
+| update `PUT` / `POST /instructor/courses/{id}` | `draft` or `rejected` | 422 `Only draft or rejected courses can be updated.` |
+| delete `DELETE /instructor/courses/{id}` | `draft` | 422 `Only draft courses can be deleted.` |
+| section create/update/delete/reorder, lesson create/update/delete/reorder, replace lesson video | parent course `draft` or `rejected` | 422 `Sections and lessons can only be changed while the course is draft or rejected.` |
+
+- Order of checks: 404 (missing) → 403 (not the owner) → 422 (status). Validation errors (422 with
+  `errors`) come first, as before. Reads (`GET`) are not restricted.
+- Resubmitting a `rejected` course moves it to `pending_publish` and clears `reject_reason`.
+  The reason stays stored (and visible to the owner and the admin) until then.
+- Archive/restore and retry video are unchanged.
+
+| Action | From | To |
+|---|---|---|
+| submit | `draft`, `rejected` | `pending_publish` (clears `reject_reason`) |
+| approve / reject | `pending_publish` | `published` / `rejected` |
+| archive | any except `archived` | `archived` |
+| restore | `archived` | `draft` |
+
+### Upload limits
+
+| Field | Types | Max | Setting |
+|---|---|---|---|
+| course `thumbnail` (create, update) | jpg, jpeg, png, webp | 5 MB | `THUMBNAIL_MAX_KB` (default 5120) |
+| lesson `video` (create, replace) | mp4, mov, webm | 2 GB | `VIDEO_MAX_KB` (default 2097152) |
+
+Both are read by `config/uploads.php` and documented in `.env.example`. PHP's
+`upload_max_filesize` and `post_max_size` must be at least as large, or PHP drops the upload before
+validation runs.
+
+### New endpoints
+
+| Method | Path | Auth | Notes |
+|---|---|---|---|
+| POST | `/api/instructor/lessons/{id}/video` | instructor (owner) | Multipart, field `video`. Course must be draft/rejected. Stores the new source under `lessons/source`, sets the video to `processing` (playlist `null`, durations 0), removes the old source and HLS files, dispatches `ProcessLessonVideo`. Creates the video row if the lesson had none. 200 `{ message, lesson }` (same `lesson` shape as create) |
+| GET | `/api/teaching-majors` | public | `{ data: ["computer_science", ...] }` from `TeachingMajor::values()`, the enum used by both teaching_major validation rules |
+| GET | `/api/admin/payments` | admin | Newest first. Without `page`: `{ data: [...] }`. With `page` (`per_page` 1-50, default 15): Laravel's `{ data, links, meta }`. Items: `id`, `student { id, name }` (or null), `course { id, title }` (or null), `amount`, `currency`, `status`, `provider`, `payment_method`, `provider_payment_id`, `stripe_checkout_session_id`, `paid_at`, `created_at`. No client secrets or checkout URLs (they are not stored) |
+
+### Changes to existing endpoints
+
+- `GET /api/admin/users`: optional `page` and `per_page` (1-50, default 15). Without `page` the
+  response is exactly as before (`{ data: [...] }`, every user); with it, `{ data, links, meta }`,
+  newest first, filters kept in the links. `role` and `status` filters as before.
+- `GET /api/admin/courses/{id}`: adds `reject_reason` (null unless rejected). The admin list doesn't have it.
+- `GET /api/student/my-courses`: each course adds `my_rating`, the student's own course rating
+  (1-5) or `null`.
+- `POST /api/auth/register-instructor`:
+  - **Re-apply:** an email that belongs to a rejected application (instructor, `inactive`, with a
+    `reject_reason`) re-submits that application instead of failing with a 500. The user and
+    profile get the new data and password, `status` goes back to `pending`, `reject_reason` is
+    cleared, and the user's tokens are revoked. A new `avatar` or `certifications` replace the
+    old files; without them the old ones are kept. Response: the normal 201
+    `{ message, instructor }`.
+  - Any other existing email: 422 `errors.email` `The email has already been taken.` (was a 500).
+  - A phone that belongs to another user: 422 `errors.phone` (was a 500).
+
 ## Open points
 
 - **Restore** always returns a course to `draft`, not to the status before
   archiving. A published course has to be resubmitted and approved again. Going back to the
   previous status needs a new column (e.g. `status_before_archive`).
-- A `rejected` course can't be resubmitted (submit only accepts `draft`), and
-  there is no endpoint that moves it back to `draft`.
+- An instructor rejected **without** a reason can't re-apply: `reject_reason` is the only thing
+  that tells a rejected application apart from an account the admin set to `inactive`. Making
+  the reason required, or storing a separate flag, would fix it.
+- `instructor_profiles.avatar` is NOT NULL, but `register-instructor` accepts no avatar, so a
+  first registration without an avatar is still a 500. Needs a migration making the column
+  nullable (not done here).
 - `CheckUserStatus` blocks `inactive` users only; the `blocked` check is commented
   out, so a blocked user who still has a token can keep using the API.
 - `duration_hours` in course responses is always `null` (no such column; the
@@ -257,7 +327,7 @@ Items: `id`, `name`, `email`, `message`, `is_read`, `read_at`, `created_at`.
 ## Migrations (in order)
 
 The ratings `PUT` endpoints, `my_rating`, admin stats and 404 handling need no new
-migration. `feature/mvp-endpoints-2` adds 20 and 21. Both are additive: two nullable
+migration. `feature/mvp-endpoints-2` adds 20 and 21; `feature/mvp-endpoints-3` adds none. Both are additive: two nullable
 columns and one new table. They have only been run in the test database, not
 against any shared or production database. The list below matches `database/migrations/`.
 

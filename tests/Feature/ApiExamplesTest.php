@@ -96,6 +96,12 @@ class ApiExamplesTest extends TestCase
             'difficulty_level' => 'hard',
         ]);
 
+        $rejectedForAdmin = $this->makeCourse($instructor, [
+            'title' => 'Vue Crash Course',
+            'status' => CourseStatus::REJECTED,
+            'reject_reason' => 'Please add a short introduction lesson.',
+        ]);
+
         $toReject = $this->makeCourse($instructor, [
             'title' => 'Draft Ideas',
             'status' => CourseStatus::PENDING_PUBLISH,
@@ -458,6 +464,107 @@ class ApiExamplesTest extends TestCase
             $tokens['instructor']
         )->assertStatus(422);
 
+        // --- Status rules ----------------------------------------------------------------
+        $this->record(
+            'Add a section to a published course (422)',
+            'POST',
+            "/api/instructor/courses/{$freeCourse->id}/sections",
+            ['title' => 'Bonus'],
+            $tokens['instructor']
+        )->assertStatus(422);
+
+        $this->record(
+            'Update a published course (422)',
+            'PUT',
+            "/api/instructor/courses/{$freeCourse->id}",
+            ['title' => 'Laravel Basics (updated)'],
+            $tokens['instructor']
+        )->assertStatus(422);
+
+        $this->record(
+            'Delete a course that is not a draft (422)',
+            'DELETE',
+            "/api/instructor/courses/{$freeCourse->id}",
+            token: $tokens['instructor']
+        )->assertStatus(422);
+
+        // --- Replace a lesson video ------------------------------------------------------
+        $this->record(
+            'Replace the video of a lesson (multipart; draft or rejected course; processing is queued)',
+            'POST',
+            "/api/instructor/lessons/{$lessonIds[0]}/video",
+            ['video' => UploadedFile::fake()->create('lesson-v2.mp4', 1024, 'video/mp4')],
+            $tokens['instructor'],
+            multipart: true
+        )->assertOk();
+
+        // --- Resubmit a rejected course ----------------------------------------------------
+        $this->record(
+            'Resubmit a rejected course (clears reject_reason)',
+            'POST',
+            "/api/instructor/courses/{$toReject->id}/submit",
+            token: $tokens['instructor']
+        )->assertOk();
+
+        // --- Instructor re-applies after a rejection ---------------------------------------
+        $this->record(
+            'Re-apply as a rejected instructor (same email, multipart; back to pending)',
+            'POST',
+            '/api/auth/register-instructor',
+            [
+                'first_name' => 'Nour',
+                'father_name' => 'Walid',
+                'last_name' => 'Hamdan',
+                'gender' => 'female',
+                'birthday' => '1992-04-12',
+                'phone' => '0900000005',
+                'email' => $applicant->email,
+                'password' => 'another-password',
+                'password_confirmation' => 'another-password',
+                'teaching_major' => 'data_science',
+                'bio' => 'Data analyst, re-applying with a clearer certificate.',
+                'certifications' => [UploadedFile::fake()->image('certificate.png')],
+            ],
+            multipart: true
+        )->assertCreated();
+
+        $this->record(
+            'Register as instructor with an email that is already used (422)',
+            'POST',
+            '/api/auth/register-instructor',
+            [
+                'first_name' => 'Hadi',
+                'father_name' => 'Karim',
+                'last_name' => 'Mansour',
+                'gender' => 'male',
+                'birthday' => '1990-01-01',
+                'phone' => '0900000099',
+                'email' => $student->email,
+                'password' => 'another-password',
+                'password_confirmation' => 'another-password',
+                'teaching_major' => 'physics',
+            ]
+        )->assertStatus(422);
+
+        // --- Lookups and admin lists -----------------------------------------------------------
+        $this->record('Teaching majors (public)', 'GET', '/api/teaching-majors')
+            ->assertOk();
+
+        $this->record('List users (admin), filtered and paginated', 'GET', '/api/admin/users?role=student&page=1&per_page=1', token: $tokens['admin'])
+            ->assertOk();
+
+        $this->record('List payments (admin)', 'GET', '/api/admin/payments', token: $tokens['admin'])
+            ->assertOk();
+
+        $this->record('List payments (admin), paginated', 'GET', '/api/admin/payments?page=1&per_page=1', token: $tokens['admin'])
+            ->assertOk();
+
+        $this->record('Course by id with reject_reason (admin)', 'GET', "/api/admin/courses/{$rejectedForAdmin->id}", token: $tokens['admin'])
+            ->assertOk();
+
+        $this->record('My courses, with my_rating', 'GET', '/api/student/my-courses', token: $tokens['student'])
+            ->assertOk();
+
         if (getenv('API_EXAMPLES')) {
             $this->writeMarkdown(base_path('docs/API-EXAMPLES.md'));
         }
@@ -511,20 +618,29 @@ class ApiExamplesTest extends TestCase
 
     private function onlyFiles(array $data): array
     {
-        return array_filter($data, fn ($value) => $value instanceof UploadedFile);
+        return array_filter($data, fn ($value) => $this->isFile($value));
     }
 
     private function withoutFiles(array $data): array
     {
-        return array_filter($data, fn ($value) => ! $value instanceof UploadedFile);
+        return array_filter($data, fn ($value) => ! $this->isFile($value));
+    }
+
+    // A file, or a list of files (e.g. certifications[]).
+    private function isFile(mixed $value): bool
+    {
+        return $value instanceof UploadedFile
+            || (is_array($value) && $value !== [] && array_filter($value, fn ($item) => ! $item instanceof UploadedFile) === []);
     }
 
     private function describeRequest(array $data): array
     {
         return array_map(
-            fn ($value) => $value instanceof UploadedFile
-                ? "<file: {$value->getClientOriginalName()}>"
-                : $value,
+            fn ($value) => match (true) {
+                $value instanceof UploadedFile => "<file: {$value->getClientOriginalName()}>",
+                is_array($value) && $this->isFile($value) => $this->describeRequest($value),
+                default => $value,
+            },
             $data
         );
     }
