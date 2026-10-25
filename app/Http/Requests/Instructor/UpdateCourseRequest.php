@@ -34,7 +34,7 @@ class UpdateCourseRequest extends FormRequest
             'difficulty_level' => ['sometimes', Rule::enum(DifficultyLevel::class)],
             'what_you_will_learn' => ['sometimes', 'string'],
 
-            'thumbnail' => ['sometimes', 'image', 'mimes:jpg,jpeg,png,webp'],
+            'thumbnail' => ['sometimes', 'image', 'mimes:jpg,jpeg,png,webp', 'max:'.config('uploads.thumbnail_max_kb')],
         ];
     }
 }
