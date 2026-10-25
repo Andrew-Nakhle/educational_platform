@@ -21,7 +21,8 @@ class ResetPasswordNotification extends Notification
 
     public function toMail(object $notifiable): MailMessage
     {
-        $url = rtrim(config('app.url'), '/')
+        // The reset page lives in the frontend (React), not on the API host.
+        $url = rtrim(config('app.frontend_url', 'http://localhost:5173'), '/')
             . '/reset-password?'
             . http_build_query([
                 'token' => $this->token,
