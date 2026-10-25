@@ -18,6 +18,13 @@ class UserResource extends JsonResource
             'age' => $this->birthday?->age,
             'role' => $this->getRoleNames()->first(),
             'status' => $this->status->value,
+
+            // Instructors only: why the application was rejected (or null).
+            'reject_reason' => $this->when(
+                $this->hasRole('instructor'),
+                fn () => $this->instructorProfile?->reject_reason
+            ),
+
             'profile' => $this->getProfileData(),
         ];
     }

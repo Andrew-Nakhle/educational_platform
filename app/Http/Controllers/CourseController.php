@@ -63,20 +63,33 @@ class CourseController extends Controller
 
         $instructor = auth()->user()->instructorProfile;
 
-        $query = $instructor->courses();
+        $query = $instructor->courses()->withCount('enrollments');
 
         if (isset($validated['status'])) {
             $query->where('status', $validated['status']);
         }
 
+        if ($request->has('page')) {
+            $courses = $query
+                ->latest()
+                ->latest('id')
+                ->paginate((int) ($validated['per_page'] ?? 15));
+
+            return response()->json([
+                'message' => 'Courses retrieved successfully.',
+                'data' => CourseResource::ownedCollection($courses),
+                'meta' => $this->paginationMeta($courses),
+            ]);
+        }
+
         return response()->json([
-            'courses' => CourseResource::collection(
+            'courses' => CourseResource::ownedCollection(
                 $query->get()
             ),
         ]);
     }
     public function getCourseById($courseId){
-        $course=Course::find($courseId);
+        $course=Course::withCount('enrollments')->find($courseId);
         $instructor=auth()->user()->instructorProfile;
 
         if(!$course){
@@ -90,7 +103,7 @@ class CourseController extends Controller
             ],403);
         }
         return response()->json([
-            'course' => new CourseResource($course)
+            'course' => (new CourseResource($course))->withRejectReason()
         ]);
 
     }

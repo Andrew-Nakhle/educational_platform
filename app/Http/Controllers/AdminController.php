@@ -6,6 +6,7 @@ use App\Enums\Course\CourseStatus;
 use App\Enums\User\UserStatus;
 use App\Http\Requests\Admin\GetCoursesRequest;
 use App\Http\Requests\Admin\GetUsersRequest;
+use App\Http\Requests\Admin\RejectRequest;
 use App\Http\Requests\Admin\UpdateUserStatusRequest;
 use App\Http\Resources\Auth\UserResource;
 use App\Http\Resources\Course\CourseResource;
@@ -55,6 +56,12 @@ class AdminController extends Controller
             'status' => $validated['status'],
         ]);
 
+        if ($user->status === UserStatus::ACTIVE) {
+            $user->instructorProfile?->update([
+                'reject_reason' => null,
+            ]);
+        }
+
         $user->load([
             'roles',
             'studentProfile',
@@ -71,13 +78,26 @@ class AdminController extends Controller
         $query = Course::with([
             'category',
             'instructorProfile',
-        ]);
+        ])->withCount('enrollments');
 
         if (isset($validated['status'])) {
             $query->where(
                 'status',
                 $validated['status']
             );
+        }
+
+        if ($request->has('page')) {
+            $courses = $query
+                ->latest()
+                ->latest('id')
+                ->paginate((int) ($validated['per_page'] ?? 15));
+
+            return response()->json([
+                'message' => 'Courses retrieved successfully.',
+                'data' => CourseResource::collection($courses),
+                'meta' => $this->paginationMeta($courses),
+            ]);
         }
 
         return response()->json([
@@ -93,7 +113,7 @@ class AdminController extends Controller
             'category',
             'instructorProfile',
             'sections.lessons.video',
-        ])->findOrFail($courseId);
+        ])->withCount('enrollments')->findOrFail($courseId);
 
         return response()->json([
             'course' => new CourseResource($course),
@@ -117,6 +137,7 @@ if (!$course) {
 
         $course->update([
             'status' => CourseStatus::PUBLISHED,
+            'reject_reason' => null,
         ]);
 
         return response()->json([
@@ -125,7 +146,7 @@ if (!$course) {
         ]);
     }
 
-    public function rejectCourse(int $courseId)
+    public function rejectCourse(int $courseId, RejectRequest $request)
     {
         $course = Course::find($courseId);
         if (!$course) {
@@ -142,6 +163,7 @@ if (!$course) {
 
         $course->update([
             'status' => CourseStatus::REJECTED,
+            'reject_reason' => $request->validated()['reason'] ?? null,
         ]);
 
         return response()->json([
@@ -198,6 +220,10 @@ if (!$course) {
             $user->update([
                 'status' => UserStatus::ACTIVE,
             ]);
+
+            $user->instructorProfile?->update([
+                'reject_reason' => null,
+            ]);
         });
 
         return response()->json([
@@ -212,7 +238,7 @@ if (!$course) {
     }
 
 // رفض طلب أستاذ
-    public function rejectInstructor(int $userId)
+    public function rejectInstructor(int $userId, RejectRequest $request)
     {
         $user = User::query()
             ->whereHas('roles', fn ($query) =>
@@ -221,9 +247,15 @@ if (!$course) {
             ->where('status', UserStatus::PENDING)
             ->findOrFail($userId);
 
-        $user->update([
-            'status' => UserStatus::INACTIVE,
-        ]);
+        DB::transaction(function () use ($user, $request) {
+            $user->update([
+                'status' => UserStatus::INACTIVE,
+            ]);
+
+            $user->instructorProfile?->update([
+                'reject_reason' => $request->validated()['reason'] ?? null,
+            ]);
+        });
 
         return response()->json([
             'message' => 'Instructor application rejected successfully.',

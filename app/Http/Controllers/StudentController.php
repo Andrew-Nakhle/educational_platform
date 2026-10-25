@@ -405,15 +405,31 @@ class StudentController extends Controller{
             $query->where('title', 'like', "%{$search}%");
         }
 
+        // With ?page= the response adds `meta` and honours per_page;
+        // without it, it stays exactly as before (12 per page, no meta).
+        $paginate = $request->has('page');
+
+        $query->latest();
+
+        if ($paginate) {
+            // Stable pages when several courses share created_at.
+            $query->latest('id');
+        }
+
         $courses = $query
-            ->latest()
-            ->paginate(12)
+            ->paginate($paginate ? (int) ($validated['per_page'] ?? 12) : 12)
             ->withQueryString();
 
-        return response()->json([
+        $response = [
             'message' => 'Courses retrieved successfully.',
             'data' => CourseResource::collection($courses),
-        ]);
+        ];
+
+        if ($paginate) {
+            $response['meta'] = $this->paginationMeta($courses);
+        }
+
+        return response()->json($response);
     }
     //هاد التابع لعرض تفاصيل الكورس يعني بس ابحث عن كورسات وجيب مجموعة واكبس عليه بستدعي هاد التابع لعرض التفاصيل
     public function showCourse(Request $request, int $courseId)

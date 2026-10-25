@@ -21,6 +21,7 @@ class Course extends Model
         'what_you_will_learn',
         'duration_hours',
         'status',
+        'reject_reason',
     ];
     protected $casts=[
         'difficulty_level'=>DifficultyLevel::class,

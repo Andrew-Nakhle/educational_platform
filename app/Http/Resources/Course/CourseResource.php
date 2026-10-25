@@ -4,6 +4,7 @@ namespace App\Http\Resources\Course;
 
 use App\Models\LessonProgress;
 use Illuminate\Http\Request;
+use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 use Illuminate\Http\Resources\Json\JsonResource;
 use Illuminate\Support\Facades\Storage;
 
@@ -22,6 +23,30 @@ class CourseResource extends JsonResource
         $this->completedLessonIds = $lessonIds;
 
         return $this;
+    }
+
+    /**
+     * Adds `reject_reason`; only for the course owner's own list and
+     * details (instructor endpoints).
+     */
+    protected bool $includeRejectReason = false;
+
+    public function withRejectReason(): static
+    {
+        $this->includeRejectReason = true;
+
+        return $this;
+    }
+
+    /**
+     * Collection for the instructor's own courses (with `reject_reason`).
+     */
+    public static function ownedCollection($resource): AnonymousResourceCollection
+    {
+        $collection = static::collection($resource);
+        $collection->collection->each(fn (self $course) => $course->withRejectReason());
+
+        return $collection;
     }
 
     /**
@@ -89,12 +114,34 @@ class CourseResource extends JsonResource
                 'name' => $this->category?->name,
             ],
 
+            // Public instructor data only (no email or phone).
             'instructor' => [
                 'id' => $this->instructorProfile?->id,
                 'first_name' => $this->instructorProfile?->first_name,
                 'father_name' => $this->instructorProfile?->father_name,
                 'last_name' => $this->instructorProfile?->last_name,
+                'avatar' => $this->instructorProfile?->avatar
+                    ? Storage::disk(config('filesystems.upload_disk'))->temporaryUrl(
+                        $this->instructorProfile->avatar,
+                        now()->addMinutes(
+                            (int) (config('filesystems.signed_url_minutes') ?? 30)
+                        )
+                    )
+                    : null,
+                'teaching_major' => $this->instructorProfile?->teaching_major?->value,
+                'bio' => $this->instructorProfile?->bio,
             ],
+
+            // Instructor and admin endpoints load withCount('enrollments').
+            'students_count' => $this->when(
+                array_key_exists('enrollments_count', $this->resource->getAttributes()),
+                fn () => (int) $this->resource->enrollments_count
+            ),
+
+            'reject_reason' => $this->when(
+                $this->includeRejectReason,
+                fn () => $this->resource->reject_reason
+            ),
 
             'rating_average' => $this->ratingAverage(),
             'ratings_count' => $this->ratingsCount(),

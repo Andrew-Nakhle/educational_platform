@@ -20,6 +20,17 @@ class GetCoursesRequest extends FormRequest
                 'nullable',
                 Rule::enum(CourseStatus::class),
             ],
+            'page' => [
+                'sometimes',
+                'integer',
+                'min:1',
+            ],
+            'per_page' => [
+                'sometimes',
+                'integer',
+                'min:1',
+                'max:50',
+            ],
         ];
     }
 }
