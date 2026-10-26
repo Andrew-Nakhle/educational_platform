@@ -6,6 +6,7 @@ use App\Enums\Course\CourseStatus;
 use App\Enums\Course\VideoStatus;
 use App\Enums\Payment\PaymentProvider;
 use App\Enums\Payment\PaymentStatus;
+use App\Exceptions\PaymentsUnavailableException;
 use App\Http\Requests\Student\GetCoursesRequest;
 use App\Http\Requests\Student\UpdateStudentProfileRequest;
 use App\Http\Resources\Admin\CategoryResource;
@@ -15,6 +16,7 @@ use App\Models\Category;
 use App\Models\Course;
 use App\Models\CourseReview;
 use App\Models\Lesson;
+use App\Models\Payment;
 use App\Services\CourseProgressService;
 use App\Models\LessonProgress;
 use App\Services\StripePaymentService;
@@ -27,6 +29,7 @@ use Illuminate\Support\Facades\Log;
 
 use Illuminate\Support\Facades\Storage;
 use mysql_xdevapi\Collection;
+use Stripe\Exception\AuthenticationException;
 use Throwable;
 
 
@@ -99,6 +102,10 @@ class StudentController extends Controller{
 
         $student = $request->user();
 
+        // The payment created by this request, if any: marked failed when
+        // Stripe can't start it, so a later retry starts a fresh one.
+        $newPayment = null;
+
         try {
             // Step 1: Validate course and prepare payment record.
             $result = DB::transaction(function () use ($courseId, $student) {
@@ -154,6 +161,19 @@ class StudentController extends Controller{
                     ->latest()
                     ->first();
 
+                // A pending payment with neither a Checkout Session nor a
+                // PaymentIntent was never started at Stripe (e.g. the
+                // provider call failed): it is abandoned, so it is marked
+                // failed and a new one is created below.
+                if (
+                    $existingPayment
+                    && ! $existingPayment->stripe_checkout_session_id
+                    && ! $existingPayment->provider_payment_id
+                ) {
+                    $existingPayment->update(['status' => PaymentStatus::FAILED]);
+                    $existingPayment = null;
+                }
+
                 if ($existingPayment) {
                     return [
                         'existing_payment' => $existingPayment,
@@ -188,6 +208,8 @@ class StudentController extends Controller{
                     'enrollment' => $result['enrollment'],
                 ], 201);
             }
+
+            $newPayment = $result['payment'] ?? null;
 
             $payment = $result['payment']
                 ?? $result['existing_payment'];
@@ -327,17 +349,68 @@ class StudentController extends Controller{
                 'client_secret' => $stripePayment['client_secret'],
             ], 201);
 
+        } catch (PaymentsUnavailableException|AuthenticationException $e) {
+            // No secret, or Stripe refused the key: nothing the student can fix.
+            $this->markPaymentFailed($newPayment);
+
+            Log::error('Payments are unavailable (Stripe is not configured or refused the key).', [
+                'student_id' => $student->id,
+                'course_id' => $courseId,
+                'payment_id' => $newPayment?->id,
+                'exception' => $e::class,
+                'error' => $this->withoutSecrets($e->getMessage()),
+            ]);
+
+            return response()->json([
+                'message' => PaymentsUnavailableException::PUBLIC_MESSAGE,
+            ], 503);
         } catch (Throwable $e) {
+            $this->markPaymentFailed($newPayment);
+
             Log::error('Course enrollment or payment initiation failed.', [
                 'student_id' => $student->id,
                 'course_id' => $courseId,
-                'error' => $e->getMessage(),
+                'payment_id' => $newPayment?->id,
+                'exception' => $e::class,
+                'error' => $this->withoutSecrets($e->getMessage()),
             ]);
 
             return response()->json([
                 'message' => 'The operation failed. Please try again.',
             ], 500);
         }
+    }
+
+    /**
+     * A payment this request created but could not start at Stripe: failed,
+     * so it never blocks a later attempt.
+     */
+    private function markPaymentFailed(?Payment $payment): void
+    {
+        if (! $payment) {
+            return;
+        }
+
+        try {
+            $payment->refresh();
+
+            if (in_array($payment->status, [PaymentStatus::PENDING, PaymentStatus::PROCESSING], true)) {
+                $payment->update(['status' => PaymentStatus::FAILED]);
+            }
+        } catch (Throwable $e) {
+            Log::error('Could not mark a payment as failed.', [
+                'payment_id' => $payment->id,
+                'exception' => $e::class,
+            ]);
+        }
+    }
+
+    /**
+     * Stripe echoes (part of) the key in some errors; never log it.
+     */
+    private function withoutSecrets(string $message): string
+    {
+        return preg_replace('/\b(sk|rk|pk|whsec)_[A-Za-z0-9_*]+/', '[redacted]', $message) ?? '';
     }
 
 

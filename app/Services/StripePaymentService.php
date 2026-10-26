@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Contracts\Payment\PaymentProviderInterface;
+use App\Exceptions\PaymentsUnavailableException;
 use Stripe\StripeClient;
 
 class StripePaymentService implements PaymentProviderInterface
@@ -21,8 +22,8 @@ class StripePaymentService implements PaymentProviderInterface
 
         $secret = config('services.stripe.secret');
 
-        if (! is_string($secret) || $secret === '') {
-            throw new \RuntimeException(
+        if (! is_string($secret) || trim($secret) === '') {
+            throw new PaymentsUnavailableException(
                 'Stripe secret is not configured.'
             );
         }

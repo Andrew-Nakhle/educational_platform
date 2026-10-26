@@ -117,8 +117,12 @@ class EnrollmentTest extends TestCase
 
         $this->actingAs($student, 'sanctum')
             ->postJson("/api/student/courses/{$course->id}/enroll", ['payment_flow' => 'web'])
-            ->assertStatus(500)
-            ->assertJsonPath('message', 'The operation failed. Please try again.');
+            ->assertStatus(503)
+            ->assertExactJson(['message' => 'Payments are temporarily unavailable. Please try again later.']);
+
+        // The payment it started is failed, so it never blocks a retry.
+        $this->assertSame(PaymentStatus::FAILED, Payment::firstOrFail()->status);
+        $this->assertCount(0, $this->stripe->requests);
     }
 
     public function test_enroll_requires_authentication(): void
