@@ -379,6 +379,74 @@ In a second terminal: `php artisan queue:work`. It is only needed when `QUEUE_CO
 
 The frontend's `fahhemni-react/.env.local` should contain `VITE_API_BASE_URL=http://127.0.0.1:8000/api`.
 
+## feature/mvp-endpoints-5
+
+Fixes from the end-to-end smoke test (frontend + this backend with `demo:seed`). Additive and
+backward compatible: no URL or method changed, no key removed. **No migration.** Tests:
+`MvpEndpoints5Test` (23), plus the updated fixtures below.
+
+### Paid enrollment: no stuck payments (`POST /api/student/courses/{id}/enroll`)
+
+- When creating the Stripe Checkout Session (`web`) or PaymentIntent (`mobile`) fails, the payment
+  this request created is marked **`failed`**, so the next attempt starts a fresh one. Before,
+  it stayed `pending` and every retry answered 409 forever.
+- A `pending`/`processing` payment with **neither** a Checkout Session **nor** a PaymentIntent
+  (never started at Stripe, e.g. left by an earlier failure) is treated as abandoned: it is marked
+  `failed` and a new payment is created in the same request (201 as for a first attempt).
+- Unchanged: a payment with a live session is resumed (200 `Continue your existing payment.`);
+  one whose session ended still answers 409 `The previous Checkout Session is no longer
+  available.`; a `web` payment asked for with `mobile` (and the reverse) still answers its 409.
+- **Payments unavailable → 503** `{"message":"Payments are temporarily unavailable. Please try again later."}`
+  when `STRIPE_SECRET` is empty (or blank) or Stripe answers an authentication error (wrong or
+  revoked key); nothing is sent to Stripe without a key. Other Stripe or server errors keep the
+  500 `The operation failed. Please try again.` The real error is only logged, with the exception
+  class and the message with any `sk_…`/`rk_…`/`pk_…`/`whsec_…` value replaced by `[redacted]`.
+- Free courses are unaffected (no Stripe call, also without a key).
+
+### Own `birthday` in the user object; optional on profile updates
+
+- `birthday` (`Y-m-d`) is added next to `age` when the user object is the requester's own:
+  `GET /api/auth/profile`, the login and student registration answers, and the
+  `PUT/POST /api/student/profile` and `/api/instructor/profile` answers (`user` and `data`).
+  Admin endpoints never show another user's birthday (an admin's own row in a list does).
+- `birthday` is now `sometimes` in `UpdateStudentProfileRequest` and
+  `UpdateInstructorProfileRequest`: a profile can be saved without it (the stored one is kept).
+  When it is sent it is still required to be a date not in the future (`null` → 422).
+  Registration (student and instructor) still requires it.
+
+### No lessons, no publishing
+
+- `POST /api/instructor/courses/{id}/submit` → 422 `Add at least one section with at least one
+  lesson before submitting the course for publishing.` when the course has no lesson (no
+  section, or only empty sections). Checked after the existing 404 / 403 / status rules.
+- `PATCH /api/admin/courses/{id}/approve` → 422 `A course with no lessons cannot be approved.`
+  (after the existing status rule).
+- Test fixtures that submitted or approved empty courses now add one lesson
+  (`CreatesTestData::giveLesson`).
+
+### Counts and the own instructor rating
+
+- `sections_count` and `lessons_count` on the instructor courses list and details, the admin
+  courses list and details, and the public course details (`GET /api/student/courses/{id}`).
+- `students_count` (number of enrollments, the same `withCount('enrollments')` as the instructor
+  and admin lists) on the public catalog list and details. Before it was missing there.
+- `my_instructor_rating` (1–5 or `null`) on each `GET /api/student/my-courses` course, next to
+  `my_rating`: the student's own rating of that course's instructor (one query for all courses).
+
+### Reset password never reveals an account
+
+- `POST /api/auth/reset-password` answers the same 422 for an unknown email and for an invalid or
+  expired token: `{"message":"This password reset link is invalid or has expired.","errors":{"email":["This password reset link is invalid or has expired."]}}`.
+  Before, an unknown email answered `We can't find a user with that email address.`
+- `POST /api/auth/forgot-password` keeps its neutral 200 for every email.
+
+### Docs
+
+- `docs/API-EXAMPLES.md` regenerated (`ApiExamplesTest`): the new fields in every course and
+  profile answer, plus examples for reset with an unknown email or bad token (422), a profile
+  saved without birthday, submit and approve of a course with no lessons (422), and a paid
+  enrollment while payments are unavailable (503, with the faked Stripe refusing the key).
+
 ## Open points
 
 - **Restore** always returns a course to `draft`, not to the status before

@@ -374,6 +374,55 @@ class ApiExamplesTest extends TestCase
             return true;
         });
 
+        // --- feature/mvp-endpoints-5 ------------------------------------------------------
+        $this->record(
+            'Reset password with an unknown email or a bad token (422, the same answer for both)',
+            'POST',
+            '/api/auth/reset-password',
+            ['token' => 'not-a-real-token', 'email' => 'nobody@example.test', 'password' => 'brand-new-password', 'password_confirmation' => 'brand-new-password']
+        )->assertStatus(422);
+
+        $this->record(
+            'Update the student profile without birthday (the stored one is kept)',
+            'PUT',
+            '/api/student/profile',
+            [
+                'first_name' => 'Maya',
+                'father_name' => 'Nabil',
+                'last_name' => 'Aziz',
+                'phone' => '0933111222',
+                'gender' => 'female',
+            ],
+            $tokens['student']
+        )->assertOk();
+
+        $emptyDraft = $this->makeCourse($instructor, ['title' => 'Empty Draft', 'status' => CourseStatus::DRAFT]);
+        $this->record(
+            'Submit a course with no lessons (422)',
+            'POST',
+            "/api/instructor/courses/{$emptyDraft->id}/submit",
+            token: $tokens['instructor']
+        )->assertStatus(422);
+
+        $emptyPending = $this->makeCourse($instructor, ['title' => 'Empty Pending', 'status' => CourseStatus::PENDING_PUBLISH]);
+        $this->record(
+            'Approve a course with no lessons (admin, 422)',
+            'PATCH',
+            "/api/admin/courses/{$emptyPending->id}/approve",
+            token: $tokens['admin']
+        )->assertStatus(422);
+
+        $unpaid = $this->makeCourse($instructor, ['title' => 'Paid Later', 'price' => '25.00']);
+        $this->stripe->failWithAuthenticationError(); // the fake Stripe refuses the key
+        $this->record(
+            'Enroll in a PAID course while payments are unavailable (no Stripe key, or Stripe refused it: 503)',
+            'POST',
+            "/api/student/courses/{$unpaid->id}/enroll",
+            ['payment_flow' => 'web'],
+            $tokens['student']
+        )->assertStatus(503);
+        $this->stripe->failWith = null;
+
         // --- Statistics and errors -----------------------------------------------
         $this->record('Platform statistics (public)', 'GET', '/api/stats')
             ->assertOk();

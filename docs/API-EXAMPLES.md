@@ -27,7 +27,7 @@ use `POST` with a `_method=PUT` field.
 7. [Course by id (instructor)](#example-7-course-by-id) `GET /api/instructor/courses/5`
 8. [Update a course (JSON; send multipart as POST with _method=PUT to change the thumbnail)](#example-8-update-a-course) `PUT /api/instructor/courses/5`
 9. [Create a section](#example-9-create-a-section) `POST /api/instructor/courses/5/sections`
-10. [Create a lesson with a video (multipart; processing is queued)](#example-10-create-a-lesson-with-a-video) `POST /api/instructor/sections/2/lessons`
+10. [Create a lesson with a video (multipart; processing is queued)](#example-10-create-a-lesson-with-a-video) `POST /api/instructor/sections/3/lessons`
 11. [Submit a course for review](#example-11-submit-a-course-for-review) `POST /api/instructor/courses/5/submit`
 12. [List users (admin)](#example-12-list-users) `GET /api/admin/users`
 13. [User by id (admin)](#example-13-user-by-id) `GET /api/admin/users/3`
@@ -55,40 +55,45 @@ use `POST` with a `_method=PUT` field.
 35. [Update the student profile (JSON)](#example-35-update-the-student-profile) `PUT /api/student/profile`
 36. [Update the instructor profile (multipart POST with _method=PUT)](#example-36-update-the-instructor-profile) `POST /api/instructor/profile`
 37. [Forgot password (sends the reset mail)](#example-37-forgot-password) `POST /api/auth/forgot-password`
-38. [Platform statistics (public)](#example-38-platform-statistics) `GET /api/stats`
-39. [Admin statistics](#example-39-admin-statistics) `GET /api/admin/stats`
-40. [Missing record (404 for any missing model)](#example-40-missing-record) `GET /api/admin/users/999`
-41. [Course catalog, paginated](#example-41-course-catalog-paginated) `GET /api/student/courses`
-42. [My courses (instructor), paginated](#example-42-my-courses) `GET /api/instructor/courses`
-43. [List courses (admin), paginated](#example-43-list-courses) `GET /api/admin/courses`
-44. [Reject an instructor application with an optional reason (admin)](#example-44-reject-an-instructor-application-with-an-optional-reason) `PATCH /api/admin/instructor-requests/5/reject`
-45. [Login (rejected instructor, with reject_reason)](#example-45-login) `POST /api/auth/login`
-46. [Send a contact message (public, 5 per minute)](#example-46-send-a-contact-message) `POST /api/contact`
-47. [Contact messages (admin)](#example-47-contact-messages) `GET /api/admin/contact-messages`
-48. [Mark a contact message as read (admin)](#example-48-mark-a-contact-message-as-read) `PATCH /api/admin/contact-messages/1/read`
-49. [Reorder the sections of a course (instructor)](#example-49-reorder-the-sections-of-a-course) `PATCH /api/instructor/courses/6/sections/reorder`
-50. [Reorder the lessons of a section (instructor)](#example-50-reorder-the-lessons-of-a-section) `PATCH /api/instructor/sections/3/lessons/reorder`
-51. [Reorder with ids that are not exactly the section lessons (422)](#example-51-reorder-with-ids-that-are-not-exactly-the-section-lessons) `PATCH /api/instructor/sections/3/lessons/reorder`
-52. [Add a section to a published course (422)](#example-52-add-a-section-to-a-published-course) `POST /api/instructor/courses/1/sections`
-53. [Update a published course (422)](#example-53-update-a-published-course) `PUT /api/instructor/courses/1`
-54. [Delete a course that is not a draft (422)](#example-54-delete-a-course-that-is-not-a-draft) `DELETE /api/instructor/courses/1`
-55. [Replace the video of a lesson (multipart; draft or rejected course; processing is queued)](#example-55-replace-the-video-of-a-lesson) `POST /api/instructor/lessons/4/video`
-56. [Resubmit a rejected course (clears reject_reason)](#example-56-resubmit-a-rejected-course) `POST /api/instructor/courses/4/submit`
-57. [Re-apply as a rejected instructor (same email, multipart; back to pending)](#example-57-re-apply-as-a-rejected-instructor) `POST /api/auth/register-instructor`
-58. [Register as instructor with an email that is already used (422)](#example-58-register-as-instructor-with-an-email-that-is-already-used) `POST /api/auth/register-instructor`
-59. [Teaching majors (public)](#example-59-teaching-majors) `GET /api/teaching-majors`
-60. [List users (admin), filtered and paginated](#example-60-list-users) `GET /api/admin/users`
-61. [List payments (admin)](#example-61-list-payments) `GET /api/admin/payments`
-62. [List payments (admin), paginated](#example-62-list-payments) `GET /api/admin/payments`
-63. [Course by id with reject_reason (admin)](#example-63-course-by-id-with-reject-reason) `GET /api/admin/courses/3`
-64. [My courses, with my_rating](#example-64-my-courses-with-my-rating) `GET /api/student/my-courses`
-65. [Register as instructor without an avatar (avatar is optional)](#example-65-register-as-instructor-without-an-avatar) `POST /api/auth/register-instructor`
-66. [Reject an instructor application without a reason (admin; the default reason is stored)](#example-66-reject-an-instructor-application-without-a-reason) `PATCH /api/admin/instructor-requests/6/reject`
-67. [Login (instructor rejected without a reason: reject_reason is "Rejected by admin")](#example-67-login) `POST /api/auth/login`
-68. [Re-apply after a rejection without a reason (same email; back to pending)](#example-68-re-apply-after-a-rejection-without-a-reason) `POST /api/auth/register-instructor`
-69. [Deactivate an instructor account (admin; no reject_reason)](#example-69-deactivate-an-instructor-account) `PATCH /api/admin/users/2/status`
-70. [Register as instructor with the email of a deactivated account (422)](#example-70-register-as-instructor-with-the-email-of-a-deactivated-account) `POST /api/auth/register-instructor`
-71. [Search users by name or email (admin; combines with role, status and pages)](#example-71-search-users-by-name-or-email) `GET /api/admin/users`
+38. [Reset password with an unknown email or a bad token (422, the same answer for both)](#example-38-reset-password-with-an-unknown-email-or-a-bad-token) `POST /api/auth/reset-password`
+39. [Update the student profile without birthday (the stored one is kept)](#example-39-update-the-student-profile-without-birthday) `PUT /api/student/profile`
+40. [Submit a course with no lessons (422)](#example-40-submit-a-course-with-no-lessons) `POST /api/instructor/courses/6/submit`
+41. [Approve a course with no lessons (admin, 422)](#example-41-approve-a-course-with-no-lessons) `PATCH /api/admin/courses/7/approve`
+42. [Enroll in a PAID course while payments are unavailable (no Stripe key, or Stripe refused it: 503)](#example-42-enroll-in-a-paid-course-while-payments-are-unavailable) `POST /api/student/courses/8/enroll`
+43. [Platform statistics (public)](#example-43-platform-statistics) `GET /api/stats`
+44. [Admin statistics](#example-44-admin-statistics) `GET /api/admin/stats`
+45. [Missing record (404 for any missing model)](#example-45-missing-record) `GET /api/admin/users/999`
+46. [Course catalog, paginated](#example-46-course-catalog-paginated) `GET /api/student/courses`
+47. [My courses (instructor), paginated](#example-47-my-courses) `GET /api/instructor/courses`
+48. [List courses (admin), paginated](#example-48-list-courses) `GET /api/admin/courses`
+49. [Reject an instructor application with an optional reason (admin)](#example-49-reject-an-instructor-application-with-an-optional-reason) `PATCH /api/admin/instructor-requests/5/reject`
+50. [Login (rejected instructor, with reject_reason)](#example-50-login) `POST /api/auth/login`
+51. [Send a contact message (public, 5 per minute)](#example-51-send-a-contact-message) `POST /api/contact`
+52. [Contact messages (admin)](#example-52-contact-messages) `GET /api/admin/contact-messages`
+53. [Mark a contact message as read (admin)](#example-53-mark-a-contact-message-as-read) `PATCH /api/admin/contact-messages/1/read`
+54. [Reorder the sections of a course (instructor)](#example-54-reorder-the-sections-of-a-course) `PATCH /api/instructor/courses/9/sections/reorder`
+55. [Reorder the lessons of a section (instructor)](#example-55-reorder-the-lessons-of-a-section) `PATCH /api/instructor/sections/4/lessons/reorder`
+56. [Reorder with ids that are not exactly the section lessons (422)](#example-56-reorder-with-ids-that-are-not-exactly-the-section-lessons) `PATCH /api/instructor/sections/4/lessons/reorder`
+57. [Add a section to a published course (422)](#example-57-add-a-section-to-a-published-course) `POST /api/instructor/courses/1/sections`
+58. [Update a published course (422)](#example-58-update-a-published-course) `PUT /api/instructor/courses/1`
+59. [Delete a course that is not a draft (422)](#example-59-delete-a-course-that-is-not-a-draft) `DELETE /api/instructor/courses/1`
+60. [Replace the video of a lesson (multipart; draft or rejected course; processing is queued)](#example-60-replace-the-video-of-a-lesson) `POST /api/instructor/lessons/5/video`
+61. [Resubmit a rejected course (clears reject_reason)](#example-61-resubmit-a-rejected-course) `POST /api/instructor/courses/4/submit`
+62. [Re-apply as a rejected instructor (same email, multipart; back to pending)](#example-62-re-apply-as-a-rejected-instructor) `POST /api/auth/register-instructor`
+63. [Register as instructor with an email that is already used (422)](#example-63-register-as-instructor-with-an-email-that-is-already-used) `POST /api/auth/register-instructor`
+64. [Teaching majors (public)](#example-64-teaching-majors) `GET /api/teaching-majors`
+65. [List users (admin), filtered and paginated](#example-65-list-users) `GET /api/admin/users`
+66. [List payments (admin)](#example-66-list-payments) `GET /api/admin/payments`
+67. [List payments (admin), paginated](#example-67-list-payments) `GET /api/admin/payments`
+68. [Course by id with reject_reason (admin)](#example-68-course-by-id-with-reject-reason) `GET /api/admin/courses/3`
+69. [My courses, with my_rating](#example-69-my-courses-with-my-rating) `GET /api/student/my-courses`
+70. [Register as instructor without an avatar (avatar is optional)](#example-70-register-as-instructor-without-an-avatar) `POST /api/auth/register-instructor`
+71. [Reject an instructor application without a reason (admin; the default reason is stored)](#example-71-reject-an-instructor-application-without-a-reason) `PATCH /api/admin/instructor-requests/6/reject`
+72. [Login (instructor rejected without a reason: reject_reason is "Rejected by admin")](#example-72-login) `POST /api/auth/login`
+73. [Re-apply after a rejection without a reason (same email; back to pending)](#example-73-re-apply-after-a-rejection-without-a-reason) `POST /api/auth/register-instructor`
+74. [Deactivate an instructor account (admin; no reject_reason)](#example-74-deactivate-an-instructor-account) `PATCH /api/admin/users/2/status`
+75. [Register as instructor with the email of a deactivated account (422)](#example-75-register-as-instructor-with-the-email-of-a-deactivated-account) `POST /api/auth/register-instructor`
+76. [Search users by name or email (admin; combines with role, status and pages)](#example-76-search-users-by-name-or-email) `GET /api/admin/users`
 
 <a id="example-1-login"></a>
 ## 1. Login (admin)
@@ -116,6 +121,7 @@ Response `200`:
         "email": "admin@example.test",
         "gender": "male",
         "age": 31,
+        "birthday": "1995-06-15",
         "role": "admin",
         "status": "active",
         "profile": {
@@ -152,6 +158,7 @@ Response `200`:
         "email": "instructor@example.test",
         "gender": "male",
         "age": 31,
+        "birthday": "1995-06-15",
         "role": "instructor",
         "status": "active",
         "reject_reason": null,
@@ -197,6 +204,7 @@ Response `200`:
         "email": "student@example.test",
         "gender": "male",
         "age": 31,
+        "birthday": "1995-06-15",
         "role": "student",
         "status": "active",
         "profile": {
@@ -228,6 +236,7 @@ Response `200`:
     "email": "student@example.test",
     "gender": "male",
     "age": 31,
+    "birthday": "1995-06-15",
     "role": "student",
     "status": "active",
     "profile": {
@@ -336,6 +345,8 @@ Response `200`:
                 "bio": "Backend developer and teacher."
             },
             "students_count": 0,
+            "sections_count": 1,
+            "lessons_count": 2,
             "reject_reason": null,
             "rating_average": null,
             "ratings_count": 0
@@ -366,6 +377,8 @@ Response `200`:
                 "bio": "Backend developer and teacher."
             },
             "students_count": 0,
+            "sections_count": 0,
+            "lessons_count": 0,
             "reject_reason": null,
             "rating_average": null,
             "ratings_count": 0
@@ -396,6 +409,8 @@ Response `200`:
                 "bio": "Backend developer and teacher."
             },
             "students_count": 0,
+            "sections_count": 0,
+            "lessons_count": 0,
             "reject_reason": "Please add a short introduction lesson.",
             "rating_average": null,
             "ratings_count": 0
@@ -426,6 +441,8 @@ Response `200`:
                 "bio": "Backend developer and teacher."
             },
             "students_count": 0,
+            "sections_count": 1,
+            "lessons_count": 1,
             "reject_reason": null,
             "rating_average": null,
             "ratings_count": 0
@@ -456,6 +473,8 @@ Response `200`:
                 "bio": "Backend developer and teacher."
             },
             "students_count": 0,
+            "sections_count": 0,
+            "lessons_count": 0,
             "reject_reason": null,
             "rating_average": null,
             "ratings_count": 0
@@ -501,6 +520,8 @@ Response `200`:
             "bio": "Backend developer and teacher."
         },
         "students_count": 0,
+        "sections_count": 0,
+        "lessons_count": 0,
         "reject_reason": null,
         "rating_average": null,
         "ratings_count": 0
@@ -584,7 +605,7 @@ Response `201`:
         "course_id": 5,
         "updated_at": "2026-10-24T10:00:00.000000Z",
         "created_at": "2026-10-24T10:00:00.000000Z",
-        "id": 2
+        "id": 3
     }
 }
 ```
@@ -592,7 +613,7 @@ Response `201`:
 <a id="example-10-create-a-lesson-with-a-video"></a>
 ## 10. Create a lesson with a video (multipart; processing is queued)
 
-`POST /api/instructor/sections/2/lessons`
+`POST /api/instructor/sections/3/lessons`
 
 - Auth: `Authorization: Bearer <token>`
 - Body (multipart/form-data):
@@ -611,15 +632,15 @@ Response `201`:
 {
     "message": "Lesson created successfully. Video processing started.",
     "lesson": {
-        "id": 3,
-        "section_id": 2,
+        "id": 4,
+        "section_id": 3,
         "title": "Your first feature test",
         "description": "Write and run a feature test.",
         "duration_seconds": 0,
         "sort_order": 1,
         "video_status": "processing",
         "video": {
-            "id": 3,
+            "id": 4,
             "status": "processing",
             "playlist_path": null,
             "duration_seconds": 0
@@ -662,6 +683,7 @@ Response `200`:
             "email": "admin@example.test",
             "gender": "male",
             "age": 31,
+            "birthday": "1995-06-15",
             "role": "admin",
             "status": "active",
             "profile": {
@@ -830,6 +852,8 @@ Response `200`:
                 "bio": "Backend developer and teacher."
             },
             "students_count": 0,
+            "sections_count": 1,
+            "lessons_count": 1,
             "rating_average": null,
             "ratings_count": 0
         },
@@ -859,6 +883,8 @@ Response `200`:
                 "bio": "Backend developer and teacher."
             },
             "students_count": 0,
+            "sections_count": 1,
+            "lessons_count": 1,
             "rating_average": null,
             "ratings_count": 0
         }
@@ -903,6 +929,8 @@ Response `200`:
             "bio": "Backend developer and teacher."
         },
         "students_count": 0,
+        "sections_count": 1,
+        "lessons_count": 2,
         "reject_reason": null,
         "rating_average": null,
         "ratings_count": 0,
@@ -1014,6 +1042,8 @@ Response `200`:
             "bio": "Backend developer and teacher."
         },
         "students_count": 0,
+        "sections_count": 1,
+        "lessons_count": 1,
         "reject_reason": "The audio in section 2 is too quiet.",
         "rating_average": null,
         "ratings_count": 0
@@ -1058,6 +1088,9 @@ Response `200`:
             "teaching_major": "computer_science",
             "bio": "Backend developer and teacher."
         },
+        "students_count": 0,
+        "sections_count": 1,
+        "lessons_count": 2,
         "rating_average": null,
         "ratings_count": 0,
         "sections": [
@@ -1210,6 +1243,9 @@ Response `200`:
             "teaching_major": "computer_science",
             "bio": "Backend developer and teacher."
         },
+        "students_count": 1,
+        "sections_count": 1,
+        "lessons_count": 2,
         "rating_average": null,
         "ratings_count": 0,
         "sections": [
@@ -1315,7 +1351,8 @@ Response `200`:
                 "total_lessons": 2,
                 "percent": 50
             },
-            "my_rating": null
+            "my_rating": null,
+            "my_instructor_rating": null
         }
     ],
     "data": [
@@ -1379,7 +1416,8 @@ Response `200`:
                 "total_lessons": 2,
                 "percent": 50
             },
-            "my_rating": null
+            "my_rating": null,
+            "my_instructor_rating": null
         }
     ]
 }
@@ -1710,6 +1748,7 @@ Response `200`:
         "email": "student@example.test",
         "gender": "female",
         "age": 25,
+        "birthday": "2001-02-03",
         "role": "student",
         "status": "active",
         "profile": {
@@ -1727,6 +1766,7 @@ Response `200`:
         "email": "student@example.test",
         "gender": "female",
         "age": 25,
+        "birthday": "2001-02-03",
         "role": "student",
         "status": "active",
         "profile": {
@@ -1775,6 +1815,7 @@ Response `200`:
         "email": "instructor@example.test",
         "gender": "male",
         "age": 38,
+        "birthday": "1988-08-08",
         "role": "instructor",
         "status": "active",
         "reject_reason": null,
@@ -1796,6 +1837,7 @@ Response `200`:
         "email": "instructor@example.test",
         "gender": "male",
         "age": 38,
+        "birthday": "1988-08-08",
         "role": "instructor",
         "status": "active",
         "reject_reason": null,
@@ -1838,8 +1880,152 @@ Response `200`:
 
 Link in the mail (token redacted): `https://frontend.example.test/reset-password?token=<token>&email=student%40example.test`
 
-<a id="example-38-platform-statistics"></a>
-## 38. Platform statistics (public)
+<a id="example-38-reset-password-with-an-unknown-email-or-a-bad-token"></a>
+## 38. Reset password with an unknown email or a bad token (422, the same answer for both)
+
+`POST /api/auth/reset-password`
+
+- Auth: none
+- Body (JSON):
+
+```json
+{
+    "token": "not-a-real-token",
+    "email": "nobody@example.test",
+    "password": "brand-new-password",
+    "password_confirmation": "brand-new-password"
+}
+```
+
+Response `422`:
+
+```json
+{
+    "message": "This password reset link is invalid or has expired.",
+    "errors": {
+        "email": [
+            "This password reset link is invalid or has expired."
+        ]
+    }
+}
+```
+
+<a id="example-39-update-the-student-profile-without-birthday"></a>
+## 39. Update the student profile without birthday (the stored one is kept)
+
+`PUT /api/student/profile`
+
+- Auth: `Authorization: Bearer <token>`
+- Body (JSON):
+
+```json
+{
+    "first_name": "Maya",
+    "father_name": "Nabil",
+    "last_name": "Aziz",
+    "phone": "0933111222",
+    "gender": "female"
+}
+```
+
+Response `200`:
+
+```json
+{
+    "message": "Student profile updated successfully.",
+    "user": {
+        "id": 3,
+        "phone": "0933111222",
+        "email": "student@example.test",
+        "gender": "female",
+        "age": 25,
+        "birthday": "2001-02-03",
+        "role": "student",
+        "status": "active",
+        "profile": {
+            "type": "student",
+            "id": 1,
+            "first_name": "Maya",
+            "father_name": "Nabil",
+            "last_name": "Aziz",
+            "avatar": null
+        }
+    },
+    "data": {
+        "id": 3,
+        "phone": "0933111222",
+        "email": "student@example.test",
+        "gender": "female",
+        "age": 25,
+        "birthday": "2001-02-03",
+        "role": "student",
+        "status": "active",
+        "profile": {
+            "type": "student",
+            "id": 1,
+            "first_name": "Maya",
+            "father_name": "Nabil",
+            "last_name": "Aziz",
+            "avatar": null
+        }
+    }
+}
+```
+
+<a id="example-40-submit-a-course-with-no-lessons"></a>
+## 40. Submit a course with no lessons (422)
+
+`POST /api/instructor/courses/6/submit`
+
+- Auth: `Authorization: Bearer <token>`
+
+Response `422`:
+
+```json
+{
+    "message": "Add at least one section with at least one lesson before submitting the course for publishing."
+}
+```
+
+<a id="example-41-approve-a-course-with-no-lessons"></a>
+## 41. Approve a course with no lessons (admin, 422)
+
+`PATCH /api/admin/courses/7/approve`
+
+- Auth: `Authorization: Bearer <token>`
+
+Response `422`:
+
+```json
+{
+    "message": "A course with no lessons cannot be approved."
+}
+```
+
+<a id="example-42-enroll-in-a-paid-course-while-payments-are-unavailable"></a>
+## 42. Enroll in a PAID course while payments are unavailable (no Stripe key, or Stripe refused it: 503)
+
+`POST /api/student/courses/8/enroll`
+
+- Auth: `Authorization: Bearer <token>`
+- Body (JSON):
+
+```json
+{
+    "payment_flow": "web"
+}
+```
+
+Response `503`:
+
+```json
+{
+    "message": "Payments are temporarily unavailable. Please try again later."
+}
+```
+
+<a id="example-43-platform-statistics"></a>
+## 43. Platform statistics (public)
 
 `GET /api/stats`
 
@@ -1852,15 +2038,15 @@ Response `200`:
     "message": "Statistics retrieved successfully.",
     "data": {
         "students": 2,
-        "courses": 3,
+        "courses": 4,
         "instructors": 1,
         "lessons": 3
     }
 }
 ```
 
-<a id="example-39-admin-statistics"></a>
-## 39. Admin statistics
+<a id="example-44-admin-statistics"></a>
+## 44. Admin statistics
 
 `GET /api/admin/stats`
 
@@ -1899,21 +2085,21 @@ Response `200`:
             }
         },
         "courses_by_status": {
-            "draft": 0,
-            "pending_publish": 0,
-            "published": 3,
+            "draft": 1,
+            "pending_publish": 1,
+            "published": 4,
             "rejected": 2,
             "archived": 0,
-            "total": 5
+            "total": 8
         },
         "pending_instructor_requests": 0,
-        "pending_courses": 0
+        "pending_courses": 1
     }
 }
 ```
 
-<a id="example-40-missing-record"></a>
-## 40. Missing record (404 for any missing model)
+<a id="example-45-missing-record"></a>
+## 45. Missing record (404 for any missing model)
 
 `GET /api/admin/users/999`
 
@@ -1927,8 +2113,8 @@ Response `404`:
 }
 ```
 
-<a id="example-41-course-catalog-paginated"></a>
-## 41. Course catalog, paginated
+<a id="example-46-course-catalog-paginated"></a>
+## 46. Course catalog, paginated
 
 `GET /api/student/courses?page=1&per_page=2`
 
@@ -1941,6 +2127,35 @@ Response `200`:
     "message": "Courses retrieved successfully.",
     "data": [
         {
+            "id": 8,
+            "title": "Paid Later",
+            "description": "Build REST APIs with Laravel.",
+            "price": "25.00",
+            "thumbnail": "https://api.example.test/courses/thumbnails/example.png?expiration=1792896000",
+            "language": "English",
+            "difficulty_level": "easy",
+            "what_you_will_learn": "Routing, Eloquent and testing.",
+            "status": "published",
+            "duration_hours": null,
+            "is_enrolled": false,
+            "category": {
+                "id": 1,
+                "name": "Programming"
+            },
+            "instructor": {
+                "id": 1,
+                "first_name": "Omar",
+                "father_name": "Tarek",
+                "last_name": "Saeed",
+                "avatar": "https://api.example.test/instructors/avatars/example14xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx.png?expiration=1792837800",
+                "teaching_major": "software_engineering",
+                "bio": "Backend developer and teacher."
+            },
+            "students_count": 0,
+            "rating_average": null,
+            "ratings_count": 0
+        },
+        {
             "id": 5,
             "title": "Testing Laravel APIs (2nd edition)",
             "description": "Feature tests for REST APIs.",
@@ -1965,34 +2180,7 @@ Response `200`:
                 "teaching_major": "software_engineering",
                 "bio": "Backend developer and teacher."
             },
-            "rating_average": null,
-            "ratings_count": 0
-        },
-        {
-            "id": 2,
-            "title": "Advanced Eloquent",
-            "description": "Build REST APIs with Laravel.",
-            "price": "49.99",
-            "thumbnail": "https://api.example.test/courses/thumbnails/example.png?expiration=1792896000",
-            "language": "English",
-            "difficulty_level": "hard",
-            "what_you_will_learn": "Routing, Eloquent and testing.",
-            "status": "published",
-            "duration_hours": null,
-            "is_enrolled": false,
-            "category": {
-                "id": 1,
-                "name": "Programming"
-            },
-            "instructor": {
-                "id": 1,
-                "first_name": "Omar",
-                "father_name": "Tarek",
-                "last_name": "Saeed",
-                "avatar": "https://api.example.test/instructors/avatars/example14xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx.png?expiration=1792837800",
-                "teaching_major": "software_engineering",
-                "bio": "Backend developer and teacher."
-            },
+            "students_count": 0,
             "rating_average": null,
             "ratings_count": 0
         }
@@ -2000,14 +2188,14 @@ Response `200`:
     "meta": {
         "current_page": 1,
         "last_page": 2,
-        "total": 3,
+        "total": 4,
         "per_page": 2
     }
 }
 ```
 
-<a id="example-42-my-courses"></a>
-## 42. My courses (instructor), paginated
+<a id="example-47-my-courses"></a>
+## 47. My courses (instructor), paginated
 
 `GET /api/instructor/courses?page=1&per_page=2`
 
@@ -2020,6 +2208,124 @@ Response `200`:
     "message": "Courses retrieved successfully.",
     "data": [
         {
+            "id": 8,
+            "title": "Paid Later",
+            "description": "Build REST APIs with Laravel.",
+            "price": "25.00",
+            "thumbnail": "https://api.example.test/courses/thumbnails/example.png?expiration=1792896000",
+            "language": "English",
+            "difficulty_level": "easy",
+            "what_you_will_learn": "Routing, Eloquent and testing.",
+            "status": "published",
+            "duration_hours": null,
+            "is_enrolled": false,
+            "category": {
+                "id": 1,
+                "name": "Programming"
+            },
+            "instructor": {
+                "id": 1,
+                "first_name": "Omar",
+                "father_name": "Tarek",
+                "last_name": "Saeed",
+                "avatar": "https://api.example.test/instructors/avatars/example14xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx.png?expiration=1792837800",
+                "teaching_major": "software_engineering",
+                "bio": "Backend developer and teacher."
+            },
+            "students_count": 0,
+            "sections_count": 0,
+            "lessons_count": 0,
+            "reject_reason": null,
+            "rating_average": null,
+            "ratings_count": 0
+        },
+        {
+            "id": 7,
+            "title": "Empty Pending",
+            "description": "Build REST APIs with Laravel.",
+            "price": "0.00",
+            "thumbnail": "https://api.example.test/courses/thumbnails/example.png?expiration=1792896000",
+            "language": "English",
+            "difficulty_level": "easy",
+            "what_you_will_learn": "Routing, Eloquent and testing.",
+            "status": "pending_publish",
+            "duration_hours": null,
+            "is_enrolled": false,
+            "category": {
+                "id": 1,
+                "name": "Programming"
+            },
+            "instructor": {
+                "id": 1,
+                "first_name": "Omar",
+                "father_name": "Tarek",
+                "last_name": "Saeed",
+                "avatar": "https://api.example.test/instructors/avatars/example14xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx.png?expiration=1792837800",
+                "teaching_major": "software_engineering",
+                "bio": "Backend developer and teacher."
+            },
+            "students_count": 0,
+            "sections_count": 0,
+            "lessons_count": 0,
+            "reject_reason": null,
+            "rating_average": null,
+            "ratings_count": 0
+        }
+    ],
+    "meta": {
+        "current_page": 1,
+        "last_page": 4,
+        "total": 8,
+        "per_page": 2
+    }
+}
+```
+
+<a id="example-48-list-courses"></a>
+## 48. List courses (admin), paginated
+
+`GET /api/admin/courses?page=2&per_page=2`
+
+- Auth: `Authorization: Bearer <token>`
+
+Response `200`:
+
+```json
+{
+    "message": "Courses retrieved successfully.",
+    "data": [
+        {
+            "id": 6,
+            "title": "Empty Draft",
+            "description": "Build REST APIs with Laravel.",
+            "price": "0.00",
+            "thumbnail": "https://api.example.test/courses/thumbnails/example.png?expiration=1792896000",
+            "language": "English",
+            "difficulty_level": "easy",
+            "what_you_will_learn": "Routing, Eloquent and testing.",
+            "status": "draft",
+            "duration_hours": null,
+            "is_enrolled": false,
+            "category": {
+                "id": 1,
+                "name": "Programming"
+            },
+            "instructor": {
+                "id": 1,
+                "first_name": "Omar",
+                "father_name": "Tarek",
+                "last_name": "Saeed",
+                "avatar": "https://api.example.test/instructors/avatars/example14xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx.png?expiration=1792837800",
+                "teaching_major": "software_engineering",
+                "bio": "Backend developer and teacher."
+            },
+            "students_count": 0,
+            "sections_count": 0,
+            "lessons_count": 0,
+            "rating_average": null,
+            "ratings_count": 0
+        },
+        {
             "id": 5,
             "title": "Testing Laravel APIs (2nd edition)",
             "description": "Feature tests for REST APIs.",
@@ -2045,133 +2351,23 @@ Response `200`:
                 "bio": "Backend developer and teacher."
             },
             "students_count": 0,
-            "reject_reason": null,
-            "rating_average": null,
-            "ratings_count": 0
-        },
-        {
-            "id": 4,
-            "title": "Draft Ideas",
-            "description": "Build REST APIs with Laravel.",
-            "price": "0.00",
-            "thumbnail": "https://api.example.test/courses/thumbnails/example.png?expiration=1792896000",
-            "language": "English",
-            "difficulty_level": "easy",
-            "what_you_will_learn": "Routing, Eloquent and testing.",
-            "status": "rejected",
-            "duration_hours": null,
-            "is_enrolled": false,
-            "category": {
-                "id": 1,
-                "name": "Programming"
-            },
-            "instructor": {
-                "id": 1,
-                "first_name": "Omar",
-                "father_name": "Tarek",
-                "last_name": "Saeed",
-                "avatar": "https://api.example.test/instructors/avatars/example14xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx.png?expiration=1792837800",
-                "teaching_major": "software_engineering",
-                "bio": "Backend developer and teacher."
-            },
-            "students_count": 0,
-            "reject_reason": "The audio in section 2 is too quiet.",
-            "rating_average": null,
-            "ratings_count": 0
-        }
-    ],
-    "meta": {
-        "current_page": 1,
-        "last_page": 3,
-        "total": 5,
-        "per_page": 2
-    }
-}
-```
-
-<a id="example-43-list-courses"></a>
-## 43. List courses (admin), paginated
-
-`GET /api/admin/courses?page=2&per_page=2`
-
-- Auth: `Authorization: Bearer <token>`
-
-Response `200`:
-
-```json
-{
-    "message": "Courses retrieved successfully.",
-    "data": [
-        {
-            "id": 3,
-            "title": "Vue Crash Course",
-            "description": "Build REST APIs with Laravel.",
-            "price": "0.00",
-            "thumbnail": "https://api.example.test/courses/thumbnails/example.png?expiration=1792896000",
-            "language": "English",
-            "difficulty_level": "easy",
-            "what_you_will_learn": "Routing, Eloquent and testing.",
-            "status": "rejected",
-            "duration_hours": null,
-            "is_enrolled": false,
-            "category": {
-                "id": 1,
-                "name": "Programming"
-            },
-            "instructor": {
-                "id": 1,
-                "first_name": "Omar",
-                "father_name": "Tarek",
-                "last_name": "Saeed",
-                "avatar": "https://api.example.test/instructors/avatars/example14xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx.png?expiration=1792837800",
-                "teaching_major": "software_engineering",
-                "bio": "Backend developer and teacher."
-            },
-            "students_count": 0,
-            "rating_average": null,
-            "ratings_count": 0
-        },
-        {
-            "id": 2,
-            "title": "Advanced Eloquent",
-            "description": "Build REST APIs with Laravel.",
-            "price": "49.99",
-            "thumbnail": "https://api.example.test/courses/thumbnails/example.png?expiration=1792896000",
-            "language": "English",
-            "difficulty_level": "hard",
-            "what_you_will_learn": "Routing, Eloquent and testing.",
-            "status": "published",
-            "duration_hours": null,
-            "is_enrolled": false,
-            "category": {
-                "id": 1,
-                "name": "Programming"
-            },
-            "instructor": {
-                "id": 1,
-                "first_name": "Omar",
-                "father_name": "Tarek",
-                "last_name": "Saeed",
-                "avatar": "https://api.example.test/instructors/avatars/example14xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx.png?expiration=1792837800",
-                "teaching_major": "software_engineering",
-                "bio": "Backend developer and teacher."
-            },
-            "students_count": 0,
+            "sections_count": 1,
+            "lessons_count": 1,
             "rating_average": null,
             "ratings_count": 0
         }
     ],
     "meta": {
         "current_page": 2,
-        "last_page": 3,
-        "total": 5,
+        "last_page": 4,
+        "total": 8,
         "per_page": 2
     }
 }
 ```
 
-<a id="example-44-reject-an-instructor-application-with-an-optional-reason"></a>
-## 44. Reject an instructor application with an optional reason (admin)
+<a id="example-49-reject-an-instructor-application-with-an-optional-reason"></a>
+## 49. Reject an instructor application with an optional reason (admin)
 
 `PATCH /api/admin/instructor-requests/5/reject`
 
@@ -2192,8 +2388,8 @@ Response `200`:
 }
 ```
 
-<a id="example-45-login"></a>
-## 45. Login (rejected instructor, with reject_reason)
+<a id="example-50-login"></a>
+## 50. Login (rejected instructor, with reject_reason)
 
 `POST /api/auth/login`
 
@@ -2218,6 +2414,7 @@ Response `200`:
         "email": "applicant@example.test",
         "gender": "male",
         "age": 31,
+        "birthday": "1995-06-15",
         "role": "instructor",
         "status": "inactive",
         "reject_reason": "The uploaded certificate is not readable.",
@@ -2237,8 +2434,8 @@ Response `200`:
 }
 ```
 
-<a id="example-46-send-a-contact-message"></a>
-## 46. Send a contact message (public, 5 per minute)
+<a id="example-51-send-a-contact-message"></a>
+## 51. Send a contact message (public, 5 per minute)
 
 `POST /api/contact`
 
@@ -2261,8 +2458,8 @@ Response `201`:
 }
 ```
 
-<a id="example-47-contact-messages"></a>
-## 47. Contact messages (admin)
+<a id="example-52-contact-messages"></a>
+## 52. Contact messages (admin)
 
 `GET /api/admin/contact-messages`
 
@@ -2293,8 +2490,8 @@ Response `200`:
 }
 ```
 
-<a id="example-48-mark-a-contact-message-as-read"></a>
-## 48. Mark a contact message as read (admin)
+<a id="example-53-mark-a-contact-message-as-read"></a>
+## 53. Mark a contact message as read (admin)
 
 `PATCH /api/admin/contact-messages/1/read`
 
@@ -2317,35 +2514,10 @@ Response `200`:
 }
 ```
 
-<a id="example-49-reorder-the-sections-of-a-course"></a>
-## 49. Reorder the sections of a course (instructor)
+<a id="example-54-reorder-the-sections-of-a-course"></a>
+## 54. Reorder the sections of a course (instructor)
 
-`PATCH /api/instructor/courses/6/sections/reorder`
-
-- Auth: `Authorization: Bearer <token>`
-- Body (JSON):
-
-```json
-{
-    "ids": [
-        4,
-        3
-    ]
-}
-```
-
-Response `200`:
-
-```json
-{
-    "message": "Sections reordered successfully."
-}
-```
-
-<a id="example-50-reorder-the-lessons-of-a-section"></a>
-## 50. Reorder the lessons of a section (instructor)
-
-`PATCH /api/instructor/sections/3/lessons/reorder`
+`PATCH /api/instructor/courses/9/sections/reorder`
 
 - Auth: `Authorization: Bearer <token>`
 - Body (JSON):
@@ -2363,14 +2535,14 @@ Response `200`:
 
 ```json
 {
-    "message": "Lessons reordered successfully."
+    "message": "Sections reordered successfully."
 }
 ```
 
-<a id="example-51-reorder-with-ids-that-are-not-exactly-the-section-lessons"></a>
-## 51. Reorder with ids that are not exactly the section lessons (422)
+<a id="example-55-reorder-the-lessons-of-a-section"></a>
+## 55. Reorder the lessons of a section (instructor)
 
-`PATCH /api/instructor/sections/3/lessons/reorder`
+`PATCH /api/instructor/sections/4/lessons/reorder`
 
 - Auth: `Authorization: Bearer <token>`
 - Body (JSON):
@@ -2378,7 +2550,32 @@ Response `200`:
 ```json
 {
     "ids": [
-        4
+        6,
+        5
+    ]
+}
+```
+
+Response `200`:
+
+```json
+{
+    "message": "Lessons reordered successfully."
+}
+```
+
+<a id="example-56-reorder-with-ids-that-are-not-exactly-the-section-lessons"></a>
+## 56. Reorder with ids that are not exactly the section lessons (422)
+
+`PATCH /api/instructor/sections/4/lessons/reorder`
+
+- Auth: `Authorization: Bearer <token>`
+- Body (JSON):
+
+```json
+{
+    "ids": [
+        5
     ]
 }
 ```
@@ -2396,8 +2593,8 @@ Response `422`:
 }
 ```
 
-<a id="example-52-add-a-section-to-a-published-course"></a>
-## 52. Add a section to a published course (422)
+<a id="example-57-add-a-section-to-a-published-course"></a>
+## 57. Add a section to a published course (422)
 
 `POST /api/instructor/courses/1/sections`
 
@@ -2418,8 +2615,8 @@ Response `422`:
 }
 ```
 
-<a id="example-53-update-a-published-course"></a>
-## 53. Update a published course (422)
+<a id="example-58-update-a-published-course"></a>
+## 58. Update a published course (422)
 
 `PUT /api/instructor/courses/1`
 
@@ -2440,8 +2637,8 @@ Response `422`:
 }
 ```
 
-<a id="example-54-delete-a-course-that-is-not-a-draft"></a>
-## 54. Delete a course that is not a draft (422)
+<a id="example-59-delete-a-course-that-is-not-a-draft"></a>
+## 59. Delete a course that is not a draft (422)
 
 `DELETE /api/instructor/courses/1`
 
@@ -2455,10 +2652,10 @@ Response `422`:
 }
 ```
 
-<a id="example-55-replace-the-video-of-a-lesson"></a>
-## 55. Replace the video of a lesson (multipart; draft or rejected course; processing is queued)
+<a id="example-60-replace-the-video-of-a-lesson"></a>
+## 60. Replace the video of a lesson (multipart; draft or rejected course; processing is queued)
 
-`POST /api/instructor/lessons/4/video`
+`POST /api/instructor/lessons/5/video`
 
 - Auth: `Authorization: Bearer <token>`
 - Body (multipart/form-data):
@@ -2475,15 +2672,15 @@ Response `200`:
 {
     "message": "Lesson video replaced successfully. Video processing started.",
     "lesson": {
-        "id": 4,
-        "section_id": 3,
+        "id": 5,
+        "section_id": 4,
         "title": "Images and containers",
         "description": "Lesson description.",
         "duration_seconds": 0,
         "sort_order": 2,
         "video_status": "processing",
         "video": {
-            "id": 4,
+            "id": 5,
             "status": "processing",
             "playlist_path": null,
             "duration_seconds": 0
@@ -2492,8 +2689,8 @@ Response `200`:
 }
 ```
 
-<a id="example-56-resubmit-a-rejected-course"></a>
-## 56. Resubmit a rejected course (clears reject_reason)
+<a id="example-61-resubmit-a-rejected-course"></a>
+## 61. Resubmit a rejected course (clears reject_reason)
 
 `POST /api/instructor/courses/4/submit`
 
@@ -2508,8 +2705,8 @@ Response `200`:
 }
 ```
 
-<a id="example-57-re-apply-as-a-rejected-instructor"></a>
-## 57. Re-apply as a rejected instructor (same email, multipart; back to pending)
+<a id="example-62-re-apply-as-a-rejected-instructor"></a>
+## 62. Re-apply as a rejected instructor (same email, multipart; back to pending)
 
 `POST /api/auth/register-instructor`
 
@@ -2569,8 +2766,8 @@ Response `201`:
 }
 ```
 
-<a id="example-58-register-as-instructor-with-an-email-that-is-already-used"></a>
-## 58. Register as instructor with an email that is already used (422)
+<a id="example-63-register-as-instructor-with-an-email-that-is-already-used"></a>
+## 63. Register as instructor with an email that is already used (422)
 
 `POST /api/auth/register-instructor`
 
@@ -2605,8 +2802,8 @@ Response `422`:
 }
 ```
 
-<a id="example-59-teaching-majors"></a>
-## 59. Teaching majors (public)
+<a id="example-64-teaching-majors"></a>
+## 64. Teaching majors (public)
 
 `GET /api/teaching-majors`
 
@@ -2638,8 +2835,8 @@ Response `200`:
 }
 ```
 
-<a id="example-60-list-users"></a>
-## 60. List users (admin), filtered and paginated
+<a id="example-65-list-users"></a>
+## 65. List users (admin), filtered and paginated
 
 `GET /api/admin/users?role=student&page=1&per_page=1`
 
@@ -2712,8 +2909,8 @@ Response `200`:
 }
 ```
 
-<a id="example-61-list-payments"></a>
-## 61. List payments (admin)
+<a id="example-66-list-payments"></a>
+## 66. List payments (admin)
 
 `GET /api/admin/payments`
 
@@ -2724,6 +2921,26 @@ Response `200`:
 ```json
 {
     "data": [
+        {
+            "id": 2,
+            "student": {
+                "id": 3,
+                "name": "Maya Aziz"
+            },
+            "course": {
+                "id": 8,
+                "title": "Paid Later"
+            },
+            "amount": "25.00",
+            "currency": "USD",
+            "status": "failed",
+            "provider": "stripe",
+            "payment_method": "card",
+            "provider_payment_id": null,
+            "stripe_checkout_session_id": null,
+            "paid_at": null,
+            "created_at": "2026-10-24T10:00:00.000000Z"
+        },
         {
             "id": 1,
             "student": {
@@ -2748,8 +2965,8 @@ Response `200`:
 }
 ```
 
-<a id="example-62-list-payments"></a>
-## 62. List payments (admin), paginated
+<a id="example-67-list-payments"></a>
+## 67. List payments (admin), paginated
 
 `GET /api/admin/payments?page=1&per_page=1`
 
@@ -2761,36 +2978,36 @@ Response `200`:
 {
     "data": [
         {
-            "id": 1,
+            "id": 2,
             "student": {
                 "id": 3,
                 "name": "Maya Aziz"
             },
             "course": {
-                "id": 2,
-                "title": "Advanced Eloquent"
+                "id": 8,
+                "title": "Paid Later"
             },
-            "amount": "49.99",
+            "amount": "25.00",
             "currency": "USD",
-            "status": "processing",
+            "status": "failed",
             "provider": "stripe",
             "payment_method": "card",
             "provider_payment_id": null,
-            "stripe_checkout_session_id": "cs_test_example",
+            "stripe_checkout_session_id": null,
             "paid_at": null,
             "created_at": "2026-10-24T10:00:00.000000Z"
         }
     ],
     "links": {
         "first": "https://api.example.test/api/admin/payments?per_page=1&page=1",
-        "last": "https://api.example.test/api/admin/payments?per_page=1&page=1",
+        "last": "https://api.example.test/api/admin/payments?per_page=1&page=2",
         "prev": null,
-        "next": null
+        "next": "https://api.example.test/api/admin/payments?per_page=1&page=2"
     },
     "meta": {
         "current_page": 1,
         "from": 1,
-        "last_page": 1,
+        "last_page": 2,
         "links": [
             {
                 "url": null,
@@ -2805,22 +3022,28 @@ Response `200`:
                 "active": true
             },
             {
-                "url": null,
+                "url": "https://api.example.test/api/admin/payments?per_page=1&page=2",
+                "label": "2",
+                "page": 2,
+                "active": false
+            },
+            {
+                "url": "https://api.example.test/api/admin/payments?per_page=1&page=2",
                 "label": "Next &raquo;",
-                "page": null,
+                "page": 2,
                 "active": false
             }
         ],
         "path": "https://api.example.test/api/admin/payments",
         "per_page": 1,
         "to": 1,
-        "total": 1
+        "total": 2
     }
 }
 ```
 
-<a id="example-63-course-by-id-with-reject-reason"></a>
-## 63. Course by id with reject_reason (admin)
+<a id="example-68-course-by-id-with-reject-reason"></a>
+## 68. Course by id with reject_reason (admin)
 
 `GET /api/admin/courses/3`
 
@@ -2856,6 +3079,8 @@ Response `200`:
             "bio": "Backend developer and teacher."
         },
         "students_count": 0,
+        "sections_count": 0,
+        "lessons_count": 0,
         "reject_reason": "Please add a short introduction lesson.",
         "rating_average": null,
         "ratings_count": 0,
@@ -2864,8 +3089,8 @@ Response `200`:
 }
 ```
 
-<a id="example-64-my-courses-with-my-rating"></a>
-## 64. My courses, with my_rating
+<a id="example-69-my-courses-with-my-rating"></a>
+## 69. My courses, with my_rating
 
 `GET /api/student/my-courses`
 
@@ -2937,7 +3162,8 @@ Response `200`:
                 "total_lessons": 2,
                 "percent": 50
             },
-            "my_rating": 4
+            "my_rating": 4,
+            "my_instructor_rating": 4
         }
     ],
     "data": [
@@ -3001,14 +3227,15 @@ Response `200`:
                 "total_lessons": 2,
                 "percent": 50
             },
-            "my_rating": 4
+            "my_rating": 4,
+            "my_instructor_rating": 4
         }
     ]
 }
 ```
 
-<a id="example-65-register-as-instructor-without-an-avatar"></a>
-## 65. Register as instructor without an avatar (avatar is optional)
+<a id="example-70-register-as-instructor-without-an-avatar"></a>
+## 70. Register as instructor without an avatar (avatar is optional)
 
 `POST /api/auth/register-instructor`
 
@@ -3059,8 +3286,8 @@ Response `201`:
 }
 ```
 
-<a id="example-66-reject-an-instructor-application-without-a-reason"></a>
-## 66. Reject an instructor application without a reason (admin; the default reason is stored)
+<a id="example-71-reject-an-instructor-application-without-a-reason"></a>
+## 71. Reject an instructor application without a reason (admin; the default reason is stored)
 
 `PATCH /api/admin/instructor-requests/6/reject`
 
@@ -3074,8 +3301,8 @@ Response `200`:
 }
 ```
 
-<a id="example-67-login"></a>
-## 67. Login (instructor rejected without a reason: reject_reason is "Rejected by admin")
+<a id="example-72-login"></a>
+## 72. Login (instructor rejected without a reason: reject_reason is "Rejected by admin")
 
 `POST /api/auth/login`
 
@@ -3100,6 +3327,7 @@ Response `200`:
         "email": "hadi@example.test",
         "gender": "male",
         "age": 36,
+        "birthday": "1990-01-01",
         "role": "instructor",
         "status": "inactive",
         "reject_reason": "Rejected by admin",
@@ -3119,8 +3347,8 @@ Response `200`:
 }
 ```
 
-<a id="example-68-re-apply-after-a-rejection-without-a-reason"></a>
-## 68. Re-apply after a rejection without a reason (same email; back to pending)
+<a id="example-73-re-apply-after-a-rejection-without-a-reason"></a>
+## 73. Re-apply after a rejection without a reason (same email; back to pending)
 
 `POST /api/auth/register-instructor`
 
@@ -3172,8 +3400,8 @@ Response `201`:
 }
 ```
 
-<a id="example-69-deactivate-an-instructor-account"></a>
-## 69. Deactivate an instructor account (admin; no reject_reason)
+<a id="example-74-deactivate-an-instructor-account"></a>
+## 74. Deactivate an instructor account (admin; no reject_reason)
 
 `PATCH /api/admin/users/2/status`
 
@@ -3212,8 +3440,8 @@ Response `200`:
 }
 ```
 
-<a id="example-70-register-as-instructor-with-the-email-of-a-deactivated-account"></a>
-## 70. Register as instructor with the email of a deactivated account (422)
+<a id="example-75-register-as-instructor-with-the-email-of-a-deactivated-account"></a>
+## 75. Register as instructor with the email of a deactivated account (422)
 
 `POST /api/auth/register-instructor`
 
@@ -3248,8 +3476,8 @@ Response `422`:
 }
 ```
 
-<a id="example-71-search-users-by-name-or-email"></a>
-## 71. Search users by name or email (admin; combines with role, status and pages)
+<a id="example-76-search-users-by-name-or-email"></a>
+## 76. Search users by name or email (admin; combines with role, status and pages)
 
 `GET /api/admin/users?search=SALEH&role=student&page=1&per_page=5`
 
