@@ -391,10 +391,12 @@ class AuthController extends Controller
             }
         );
 
+        // One answer for an unknown email and a bad or expired token, so
+        // the endpoint never tells whether an account exists.
         if ($status !== Password::PASSWORD_RESET) {
             throw ValidationException::withMessages([
                 'email' => [
-                    __($status),
+                    'This password reset link is invalid or has expired.',
                 ],
             ]);
         }
