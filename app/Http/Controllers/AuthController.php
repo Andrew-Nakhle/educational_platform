@@ -19,6 +19,7 @@ use Illuminate\Support\Facades\Password;
 use Throwable;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
+use App\Support\Redact;
 class AuthController extends Controller
 {
     public function registerStudent(RegisterRequest $request)
@@ -282,7 +283,7 @@ class AuthController extends Controller
         } catch (Throwable $e) {
             Log::warning('Failed to delete replaced instructor files.', [
                 'user_id' => $user->id,
-                'error' => $e->getMessage(),
+                'error' => Redact::secrets($e->getMessage()),
             ]);
         }
 

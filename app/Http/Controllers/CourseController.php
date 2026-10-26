@@ -11,6 +11,7 @@ use App\Models\Course;
 use App\Services\B2StorageService;
 use Illuminate\Support\Facades\DB;
 use Throwable;
+use App\Support\Redact;
 
 class CourseController extends Controller
 {
@@ -255,7 +256,7 @@ class CourseController extends Controller
 
             return response()->json([
                 'message' => 'Failed to delete course files. The course was not deleted.',
-                'error' => $e->getMessage(),
+                'error' => Redact::secrets($e->getMessage()),
             ], 500);
         }
 

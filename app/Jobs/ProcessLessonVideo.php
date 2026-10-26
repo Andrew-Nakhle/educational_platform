@@ -9,6 +9,7 @@ use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 use Symfony\Component\Process\Process;
 use Throwable;
+use App\Support\Redact;
 
 class ProcessLessonVideo implements ShouldQueue
 {
@@ -207,7 +208,7 @@ class ProcessLessonVideo implements ShouldQueue
 
             Log::error('Lesson video processing attempt failed', [
                 'lesson_video_id' => $lessonVideo->id,
-                'error' => $e->getMessage(),
+                'error' => Redact::secrets($e->getMessage()),
                 'file' => $e->getFile(),
                 'line' => $e->getLine(),
             ]);
@@ -237,7 +238,7 @@ class ProcessLessonVideo implements ShouldQueue
 
         Log::error('Lesson video processing permanently failed', [
             'lesson_video_id' => $this->lessonVideoId,
-            'error' => $exception?->getMessage(),
+            'error' => Redact::secrets($exception?->getMessage()),
         ]);
     }
 

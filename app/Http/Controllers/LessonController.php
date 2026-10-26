@@ -17,6 +17,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 use Throwable;
+use App\Support\Redact;
 
 class LessonController extends Controller
 {
@@ -149,7 +150,7 @@ class LessonController extends Controller
         } catch (Throwable $e) {
             Log::warning('Failed to delete the old lesson video files.', [
                 'lesson_id' => $lesson->id,
-                'error' => $e->getMessage(),
+                'error' => Redact::secrets($e->getMessage()),
             ]);
         }
 

@@ -11,6 +11,7 @@ use App\Services\B2StorageService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 use Throwable;
+use App\Support\Redact;
 
 class SectionController extends Controller
 {
@@ -299,7 +300,7 @@ class SectionController extends Controller
 
             return response()->json([
                 'message' => 'Failed to delete section files. The section was not deleted.',
-                'error' => $e->getMessage(),
+                'error' => Redact::secrets($e->getMessage()),
             ], 500);
         }
 

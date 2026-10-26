@@ -32,6 +32,7 @@ use Illuminate\Support\Facades\Storage;
 use mysql_xdevapi\Collection;
 use Stripe\Exception\AuthenticationException;
 use Throwable;
+use App\Support\Redact;
 
 
 
@@ -358,7 +359,7 @@ class StudentController extends Controller{
                 'course_id' => $courseId,
                 'payment_id' => $newPayment?->id,
                 'exception' => $e::class,
-                'error' => $this->withoutSecrets($e->getMessage()),
+                'error' => Redact::secrets($e->getMessage()),
             ]);
 
             return response()->json([
@@ -372,7 +373,7 @@ class StudentController extends Controller{
                 'course_id' => $courseId,
                 'payment_id' => $newPayment?->id,
                 'exception' => $e::class,
-                'error' => $this->withoutSecrets($e->getMessage()),
+                'error' => Redact::secrets($e->getMessage()),
             ]);
 
             return response()->json([
@@ -405,13 +406,6 @@ class StudentController extends Controller{
         }
     }
 
-    /**
-     * Stripe echoes (part of) the key in some errors; never log it.
-     */
-    private function withoutSecrets(string $message): string
-    {
-        return preg_replace('/\b(sk|rk|pk|whsec)_[A-Za-z0-9_*]+/', '[redacted]', $message) ?? '';
-    }
 
 
 
