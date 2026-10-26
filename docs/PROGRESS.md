@@ -11,6 +11,8 @@
 | `feature/mvp-endpoints-3` | `feature/mvp-endpoints-2` | Status rules, upload limits, replace video, instructor re-apply, teaching majors, admin payments/users lists, `my_rating`; pushed to `origin` |
 | `feature/mvp-endpoints-4` | `feature/mvp-endpoints-3` | Instructor sign-up without an avatar, default reason for a reason-less rejection, `?search=` on admin users; pushed to `origin` |
 | `feature/demo-seed-command` | `feature/mvp-endpoints-4` | `php artisan demo:seed` (fake data for end-to-end testing); pushed to `origin` |
+| `feature/mvp-endpoints-5` | `feature/demo-seed-command` | Fixes from the end-to-end smoke test (see its section); pushed to `origin` |
+| `feature/security-and-deploy-docs` | `feature/mvp-endpoints-5` | CORS origins, token expiry, rate limits, `tokens:revoke-all`, `admin:set-password`, redacted logs; `docs/DEPLOY.md`, `docs/PR_DESCRIPTION.md`; pushed to `origin` |
 
 Run the tests with `php artisan test` (in-memory SQLite, faked upload disk, faked
 Stripe HTTP client; no external services). Real request/response examples are in
@@ -497,3 +499,22 @@ against any shared or production database. The list below matches `database/migr
     `message`, nullable `read_at`, timestamps)
 22. `2026_10_27_100000_make_instructor_profiles_avatar_nullable` (mvp-endpoints-4;
     `instructor_profiles.avatar` nullable; `down()` stores `''` for missing avatars first)
+
+## feature/security-and-deploy-docs
+
+Additive: no URL, method or response key changed. **No migration.** Tests: `SecurityTest` (20).
+
+| Item | Where | Behaviour |
+|---|---|---|
+| CORS origins | `config/cors.php`, `CORS_ALLOWED_ORIGINS` | Comma-separated origins (trimmed, no trailing slash). Unset or empty: `*` as before. With one origin the header always names it (other sites are refused by their browser); with several, an unlisted origin gets no header |
+| Token expiry | `config/sanctum.php`, `SANCTUM_TOKEN_EXPIRATION_MINUTES` | Unset or empty: tokens never expire (as before). Expired → `401 {"message":"Unauthenticated."}`. `sanctum:prune-expired --hours=24` runs daily |
+| Rate limits | `routes/api.php` | `throttle:10,1` on login; `throttle:5,1` on register, register-instructor, forgot-password and reset-password (contact already had it). 429 JSON `Too Many Attempts.` with `Retry-After`. `ApiExamplesTest` runs without the limiter |
+| `tokens:revoke-all` | `app/Console/Commands/RevokeAllTokens.php` | Deletes every personal access token after a confirmation; `--force` skips it |
+| `admin:set-password {email}` | `app/Console/Commands/SetAdminPassword.php` | Existing admin only (email case-insensitive). Hidden prompt asked twice, or `ADMIN_NEW_PASSWORD`; at least 8 characters; never printed; revokes that admin's tokens and resets `remember_token` |
+| Secrets in logs | `app/Support/Redact.php` | Stripe keys and webhook secrets, client secrets, bearer tokens and URL signatures are removed from every logged exception message (it replaces `StudentController::withoutSecrets()`; the webhook, expire-unpaid, cleanup and video-job logs logged raw messages) |
+
+**Audit of responses (item 6).** `User` hides `password` and `remember_token`, and the user resources list their fields
+explicitly; `Payment` stores neither a checkout URL nor a client secret, so the admin payments list can't show them.
+The only places that return a token, a checkout URL or a client secret are the ones that must: login/register (the
+caller's own token) and `POST /student/courses/{id}/enroll` (the paying student's own `checkout_url` or `client_secret`).
+`ApiExamplesTest` redacts `token` and `client_secret` in the recorded examples. Tests check the user and payment responses.
