@@ -79,10 +79,10 @@ class RejectReasonTest extends TestCase
 
     public function test_approving_a_course_clears_an_old_reject_reason(): void
     {
-        $course = $this->makeCourse(attributes: [
+        $course = $this->giveLesson($this->makeCourse(attributes: [
             'status' => CourseStatus::PENDING_PUBLISH,
             'reject_reason' => 'Old reason.',
-        ]);
+        ]));
 
         $this->actingAs($this->makeAdmin(), 'sanctum')
             ->patchJson("/api/admin/courses/{$course->id}/approve")

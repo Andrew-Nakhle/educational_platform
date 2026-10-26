@@ -102,10 +102,10 @@ class ApiExamplesTest extends TestCase
             'reject_reason' => 'Please add a short introduction lesson.',
         ]);
 
-        $toReject = $this->makeCourse($instructor, [
+        $toReject = $this->giveLesson($this->makeCourse($instructor, [
             'title' => 'Draft Ideas',
             'status' => CourseStatus::PENDING_PUBLISH,
-        ]);
+        ]));
 
         // --- Auth ----------------------------------------------------------
         $tokens = [];

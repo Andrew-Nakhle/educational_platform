@@ -201,6 +201,12 @@ if (!$course) {
             ], 422);
         }
 
+        if (! $course->hasLessons()) {
+            return response()->json([
+                'message' => 'A course with no lessons cannot be approved.',
+            ], 422);
+        }
+
         $course->update([
             'status' => CourseStatus::PUBLISHED,
             'reject_reason' => null,

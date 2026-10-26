@@ -296,6 +296,12 @@ if (! $course) {
             ], 422);
         }
 
+        if (! $course->hasLessons()) {
+            return response()->json([
+                'message' => 'Add at least one section with at least one lesson before submitting the course for publishing.',
+            ], 422);
+        }
+
         // Resubmitting a rejected course clears the previous reason.
         $course->update([
             'status' => CourseStatus::PENDING_PUBLISH,

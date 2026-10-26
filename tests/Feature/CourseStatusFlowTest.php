@@ -26,7 +26,7 @@ class CourseStatusFlowTest extends TestCase
     public function test_submit_then_approve_publishes_the_course(): void
     {
         $instructor = $this->makeInstructor();
-        $course = $this->makeCourse($instructor, ['status' => CourseStatus::DRAFT]);
+        $course = $this->giveLesson($this->makeCourse($instructor, ['status' => CourseStatus::DRAFT]));
 
         $this->actingAs($instructor, 'sanctum')
             ->postJson("/api/instructor/courses/{$course->id}/submit")
@@ -79,10 +79,10 @@ class CourseStatusFlowTest extends TestCase
     public function test_resubmitting_a_rejected_course_clears_the_reject_reason(): void
     {
         $instructor = $this->makeInstructor();
-        $course = $this->makeCourse($instructor, [
+        $course = $this->giveLesson($this->makeCourse($instructor, [
             'status' => CourseStatus::REJECTED,
             'reject_reason' => 'Audio is too quiet.',
-        ]);
+        ]));
 
         $this->actingAs($instructor, 'sanctum')
             ->postJson("/api/instructor/courses/{$course->id}/submit")

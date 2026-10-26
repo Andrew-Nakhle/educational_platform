@@ -111,6 +111,17 @@ trait CreatesTestData
         ], $attributes));
     }
 
+    /**
+     * One section with one lesson: a course needs it to be submitted for
+     * publishing or approved.
+     */
+    protected function giveLesson(Course $course): Course
+    {
+        $this->makeLesson($this->makeSection($course));
+
+        return $course;
+    }
+
     protected function makeLesson(
         Section $section,
         array $attributes = [],

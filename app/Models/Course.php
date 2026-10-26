@@ -71,4 +71,13 @@ class Course extends Model
     {
         return $this->hasManyThrough(Lesson::class, Section::class);
     }
+
+    /**
+     * At least one section with at least one lesson: needed to submit a
+     * course for publishing and to approve it.
+     */
+    public function hasLessons(): bool
+    {
+        return $this->lessons()->exists();
+    }
 }
