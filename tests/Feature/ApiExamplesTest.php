@@ -10,6 +10,7 @@ use App\Models\User;
 use App\Notifications\ResetPasswordNotification;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Routing\Middleware\ThrottleRequests;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Notification;
 use Illuminate\Support\Facades\Queue;
@@ -43,6 +44,10 @@ class ApiExamplesTest extends TestCase
         parent::setUp();
 
         $this->setUpTestData();
+
+        // One run registers and logs in many accounts; the rate limits
+        // (SecurityTest) would stop it. They don't change any response shape.
+        $this->withoutMiddleware(ThrottleRequests::class);
 
         Carbon::setTestNow('2026-10-24 10:00:00');
 

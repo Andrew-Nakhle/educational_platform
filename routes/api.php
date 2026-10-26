@@ -31,15 +31,15 @@ Route::get('/teaching-majors', [TeachingMajorController::class, 'index']);
 Route::post('/contact', [ContactMessageController::class, 'store'])->middleware('throttle:5,1');
 
 Route::prefix('auth')->group(function () {
-    Route::post('login', [AuthController::class, 'login']);
+    Route::post('login', [AuthController::class, 'login'])->middleware('throttle:10,1');
 //    Route::post('login/manager', [AuthController::class, 'loginManager']);
-    Route::post('/register', [AuthController::class, 'registerStudent']);
+    Route::post('/register', [AuthController::class, 'registerStudent'])->middleware('throttle:5,1');
     Route::get('/profile', [AuthController::class, 'profile'])->middleware('auth:sanctum');
     Route::post('/logout', [AuthController::class, 'logout'])->middleware('auth:sanctum');
     Route::post('/change-password', [AuthController::class, 'changePassword'])->middleware('auth:sanctum');
-    Route::post('/register-instructor', [AuthController::class, 'registerInstructor',]);
-    Route::post('/forgot-password', [AuthController::class, 'forgotPassword',]);
-    Route::post('/reset-password', [AuthController::class, 'resetPassword',]);
+    Route::post('/register-instructor', [AuthController::class, 'registerInstructor',])->middleware('throttle:5,1');
+    Route::post('/forgot-password', [AuthController::class, 'forgotPassword',])->middleware('throttle:5,1');
+    Route::post('/reset-password', [AuthController::class, 'resetPassword',])->middleware('throttle:5,1');
     Route::put('/change-password', [AuthController::class, 'changePassword',])->middleware('auth:sanctum');
 });
 //admin////
