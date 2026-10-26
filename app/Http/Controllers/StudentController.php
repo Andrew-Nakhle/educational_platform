@@ -53,11 +53,10 @@ class StudentController extends Controller{
 
             $user = $request->user();
 
-            $user->update([
+            $user->update(array_merge([
                 'phone' => $validated['phone'],
                 'gender' => $validated['gender'],
-                'birthday' => $validated['birthday'],
-            ]);
+            ], array_key_exists('birthday', $validated) ? ['birthday' => $validated['birthday']] : []));
 
             $profileData = [
                 'first_name' => $validated['first_name'],

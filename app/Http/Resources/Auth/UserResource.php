@@ -8,14 +8,34 @@ use Illuminate\Support\Facades\Storage;
 
 class UserResource extends JsonResource
 {
+    /**
+     * Adds `birthday` for a response about the requester's own account
+     * that isn't authenticated yet (login). Otherwise it is added only
+     * when the user is the authenticated requester, so admin lists never
+     * show other users' birthdays.
+     */
+    protected bool $includeBirthday = false;
+
+    public function withBirthday(): static
+    {
+        $this->includeBirthday = true;
+
+        return $this;
+    }
+
     public function toArray(Request $request): array
     {
+        $own = $this->includeBirthday
+            || ($request->user() !== null && $request->user()->is($this->resource));
+
         return [
             'id' => $this->id,
             'phone' => $this->phone,
             'email' => $this->email,
             'gender' => $this->gender,
             'age' => $this->birthday?->age,
+            // Own account only (Y-m-d), so a profile form can show it.
+            'birthday' => $this->when($own, fn () => $this->birthday?->format('Y-m-d')),
             'role' => $this->getRoleNames()->first(),
             'status' => $this->status->value,
 

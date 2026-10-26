@@ -111,7 +111,7 @@ class AuthController extends Controller
 
         return response()->json([
             'message' => 'Registration successful',
-            'user' => new UserResource($result['user']),
+            'user' => (new UserResource($result['user']))->withBirthday(),
             'token' => $result['token'],
         ], 201);
     }
@@ -330,8 +330,8 @@ class AuthController extends Controller
 
         return response()->json([
             'message' => 'Login successful.',
-            'user' => new UserResource($user->load('roles','studentProfile',
-                'instructorProfile.certificates')),
+            'user' => (new UserResource($user->load('roles','studentProfile',
+                'instructorProfile.certificates')))->withBirthday(),
             'token' => $token,
         ]);
     }
