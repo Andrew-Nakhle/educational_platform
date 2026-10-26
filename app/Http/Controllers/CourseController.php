@@ -63,7 +63,7 @@ class CourseController extends Controller
 
         $instructor = auth()->user()->instructorProfile;
 
-        $query = $instructor->courses()->withCount('enrollments');
+        $query = $instructor->courses()->withCount(['enrollments', 'sections', 'lessons']);
 
         if (isset($validated['status'])) {
             $query->where('status', $validated['status']);
@@ -89,7 +89,7 @@ class CourseController extends Controller
         ]);
     }
     public function getCourseById($courseId){
-        $course=Course::withCount('enrollments')->find($courseId);
+        $course=Course::withCount(['enrollments', 'sections', 'lessons'])->find($courseId);
         $instructor=auth()->user()->instructorProfile;
 
         if(!$course){

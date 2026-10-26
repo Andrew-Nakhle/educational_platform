@@ -176,10 +176,10 @@ class CourseListPaginationTest extends TestCase
         $this->getJson('/api/admin/courses?page=1')->assertJsonPath('data.0.students_count', 2);
         $this->getJson("/api/admin/courses/{$course->id}")->assertJsonPath('course.students_count', 2);
 
-        // Not part of the public catalog.
+        // The public catalog has it too (B6), with the same count.
         $this->app['auth']->forgetGuards();
-        $this->getJson('/api/student/courses')->assertJsonMissingPath('data.0.students_count');
-        $this->getJson("/api/student/courses/{$course->id}")->assertJsonMissingPath('data.students_count');
+        $this->getJson('/api/student/courses')->assertJsonPath('data.0.students_count', 2);
+        $this->getJson("/api/student/courses/{$course->id}")->assertJsonPath('data.students_count', 2);
     }
 
     public function test_course_instructor_object_has_public_profile_fields_only(): void

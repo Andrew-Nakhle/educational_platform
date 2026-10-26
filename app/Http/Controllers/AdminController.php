@@ -144,7 +144,7 @@ class AdminController extends Controller
         $query = Course::with([
             'category',
             'instructorProfile',
-        ])->withCount('enrollments');
+        ])->withCount(['enrollments', 'sections', 'lessons']);
 
         if (isset($validated['status'])) {
             $query->where(
@@ -179,7 +179,7 @@ class AdminController extends Controller
             'category',
             'instructorProfile',
             'sections.lessons.video',
-        ])->withCount('enrollments')->findOrFail($courseId);
+        ])->withCount(['enrollments', 'sections', 'lessons'])->findOrFail($courseId);
 
         return response()->json([
             'course' => (new CourseResource($course))->withRejectReason(),

@@ -138,6 +138,17 @@ class CourseResource extends JsonResource
                 fn () => (int) $this->resource->enrollments_count
             ),
 
+            // Instructor and admin lists, and every course details endpoint,
+            // load withCount(['sections', 'lessons']).
+            'sections_count' => $this->when(
+                array_key_exists('sections_count', $this->resource->getAttributes()),
+                fn () => (int) $this->resource->sections_count
+            ),
+            'lessons_count' => $this->when(
+                array_key_exists('lessons_count', $this->resource->getAttributes()),
+                fn () => (int) $this->resource->lessons_count
+            ),
+
             'reject_reason' => $this->when(
                 $this->includeRejectReason,
                 fn () => $this->resource->reject_reason

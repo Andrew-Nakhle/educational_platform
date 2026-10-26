@@ -16,6 +16,7 @@ use App\Models\Category;
 use App\Models\Course;
 use App\Models\CourseReview;
 use App\Models\Lesson;
+use App\Models\InstructorReview;
 use App\Models\Payment;
 use App\Services\CourseProgressService;
 use App\Models\LessonProgress;
@@ -440,8 +441,15 @@ class StudentController extends Controller{
             ->whereIn('course_id', $enrollments->pluck('course_id'))
             ->pluck('rating', 'course_id');
 
-        $courses = $enrollments->map(function ($enrollment) use ($progress, $request, $myRatings) {
+        // The student's own rating (1-5) of each course's instructor, or null.
+        $myInstructorRatings = InstructorReview::query()
+            ->where('user_id', $student->id)
+            ->whereIn('instructor_profile_id', $enrollments->pluck('course.instructor_profile_id')->filter()->unique())
+            ->pluck('rating', 'instructor_profile_id');
+
+        $courses = $enrollments->map(function ($enrollment) use ($progress, $request, $myRatings, $myInstructorRatings) {
             $courseProgress = $progress[$enrollment->course_id];
+            $instructorProfileId = $enrollment->course->instructor_profile_id;
 
             return array_merge(
                 (new CourseResource($enrollment->course))->resolve($request),
@@ -451,6 +459,9 @@ class StudentController extends Controller{
                     'progress' => $courseProgress['progress'],
                     'my_rating' => isset($myRatings[$enrollment->course_id])
                         ? (int) $myRatings[$enrollment->course_id]
+                        : null,
+                    'my_instructor_rating' => isset($myInstructorRatings[$instructorProfileId])
+                        ? (int) $myInstructorRatings[$instructorProfileId]
                         : null,
                 ]
             );
@@ -522,6 +533,7 @@ class StudentController extends Controller{
         $this->withCatalogAttributes($query, $request);
 
         $course = $query
+            ->withCount(['sections', 'lessons'])
             ->with([
                 'category',
                 'instructorProfile',
@@ -562,6 +574,7 @@ class StudentController extends Controller{
 
         $query
             ->withCount('reviews')
+            ->withCount('enrollments') // students_count, as on the instructor and admin lists
             ->withAvg('reviews', 'rating')
             ->withExists([
                 'enrollments as is_enrolled' => fn ($enrollments) =>
