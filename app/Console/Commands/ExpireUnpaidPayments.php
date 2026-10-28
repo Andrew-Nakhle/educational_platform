@@ -10,6 +10,7 @@ use App\Services\StripePaymentService;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Log;
 use Throwable;
+use App\Support\Redact;
 
 class ExpireUnpaidPayments extends Command
 {
@@ -157,7 +158,7 @@ class ExpireUnpaidPayments extends Command
         } catch (Throwable $e) {
             Log::error('Failed to expire unpaid Stripe payment.', [
                 'payment_id' => $payment->id,
-                'error' => $e->getMessage(),
+                'error' => Redact::secrets($e->getMessage()),
             ]);
         }
     }

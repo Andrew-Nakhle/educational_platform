@@ -16,11 +16,10 @@ class InstructorController extends Controller
 
             $user = $request->user();
 
-            $user->update([
+            $user->update(array_merge([
                 'phone' => $validated['phone'],
                 'gender' => $validated['gender'],
-                'birthday' => $validated['birthday'],
-            ]);
+            ], array_key_exists('birthday', $validated) ? ['birthday' => $validated['birthday']] : []));
 
             $profileData = [
                 'first_name' => $validated['first_name'],
@@ -32,7 +31,7 @@ class InstructorController extends Controller
 
             if ($request->hasFile('avatar')) {
                 $profileData['avatar'] = $request->file('avatar')
-                    ->store('instructors/avatars', 'b2');
+                    ->store('instructors/avatars', config('filesystems.upload_disk'));
             }
 
             $user->instructorProfile()->updateOrCreate(
@@ -48,9 +47,12 @@ class InstructorController extends Controller
             ]);
         });
 
+        $resource = new UserResource($user);
+
         return response()->json([
             'message' => 'Instructor profile updated successfully.',
-            'user' => new UserResource($user),
+            'user' => $resource,
+            'data' => $resource,
         ]);
     }
 

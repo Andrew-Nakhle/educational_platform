@@ -11,6 +11,7 @@ use Stripe\Exception\SignatureVerificationException;
 use Stripe\Webhook;
 use Throwable;
 use UnexpectedValueException;
+use App\Support\Redact;
 
 class PaymentController extends Controller
 {
@@ -269,7 +270,7 @@ class PaymentController extends Controller
             Log::error('Stripe webhook processing failed.', [
                 'event_id' => $event->id,
                 'event_type' => $event->type,
-                'error' => $e->getMessage(),
+                'error' => Redact::secrets($e->getMessage()),
             ]);
 
             return response()->json([

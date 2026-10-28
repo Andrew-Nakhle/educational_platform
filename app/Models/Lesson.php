@@ -26,6 +26,7 @@ class Lesson extends Model
     {
         return $this->hasOne(LessonVideo::class);
     }
+
     public function progress()
     {
         return $this->hasMany(LessonProgress::class);

@@ -21,4 +21,12 @@ enum TeachingMajor: string
     case BIOLOGY = 'biology';
     case LANGUAGES = 'languages';
     case DESIGN = 'design';
+
+    /**
+     * @return array<int, string>
+     */
+    public static function values(): array
+    {
+        return array_column(self::cases(), 'value');
+    }
 }

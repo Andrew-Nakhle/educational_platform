@@ -12,3 +12,7 @@ Artisan::command('inspire', function () {
 Schedule::command('payments:expire-unpaid')
     ->everyMinute()
     ->withoutOverlapping();
+
+// Deletes tokens past SANCTUM_TOKEN_EXPIRATION_MINUTES (and any expires_at)
+// a day after they expired; nothing to do while expiry is off.
+Schedule::command('sanctum:prune-expired --hours=24')->daily();

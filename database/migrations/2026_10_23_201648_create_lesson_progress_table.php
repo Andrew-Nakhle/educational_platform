@@ -11,6 +11,12 @@ return new class extends Migration
      */
     public function up(): void
     {
+        // Databases migrated from feature/mvp-endpoints-1 already have it
+        // (2026_10_24_100000_create_lesson_progress_table, now removed).
+        if (Schema::hasTable('lesson_progress')) {
+            return;
+        }
+
         Schema::create('lesson_progress', function (Blueprint $table) {
             $table->id();
 

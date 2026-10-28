@@ -25,7 +25,10 @@ class UpdateStudentProfileRequest extends FormRequest
 
             'gender' => ['required', Rule::in(['male', 'female']),],
 
-            'birthday' => ['required', 'date', 'before_or_equal:today',],
+            // Optional on update (kept when not sent); still checked when sent.
+            'birthday' => ['sometimes', 'required', 'date', 'before_or_equal:today',],
+
+            'avatar' => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp',],
         ];
     }
 }

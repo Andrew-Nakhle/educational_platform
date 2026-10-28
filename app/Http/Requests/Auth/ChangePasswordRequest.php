@@ -27,8 +27,17 @@ class ChangePasswordRequest extends FormRequest
                 'required',
                 'string',
             ],
+            // PUT sends new_password(+_confirmation); the older POST sends
+            // password(+_confirmation). Either one is accepted.
             'new_password' => [
-                'required',
+                'required_without:password',
+                'string',
+                'min:8',
+                'confirmed',
+                'different:current_password',
+            ],
+            'password' => [
+                'required_without:new_password',
                 'string',
                 'min:8',
                 'confirmed',

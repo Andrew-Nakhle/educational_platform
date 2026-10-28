@@ -18,12 +18,22 @@ class StoreLessonRequest extends FormRequest
 
             'description' => ['nullable', 'string'],
 
-            'video' => [
-                'required',
-                'file',
-                'mimes:mp4,mov,webm',
+            'video' => self::videoRules(),
+        ];
+    }
 
-            ],
+    /**
+     * Rules for a lesson video upload (also used when replacing it).
+     *
+     * @return array<int, string>
+     */
+    public static function videoRules(): array
+    {
+        return [
+            'required',
+            'file',
+            'mimes:mp4,mov,webm',
+            'max:'.config('uploads.video_max_kb'),
         ];
     }
 }

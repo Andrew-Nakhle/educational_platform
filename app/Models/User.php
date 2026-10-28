@@ -69,6 +69,7 @@ class User extends Authenticatable
     {
         return $this->hasMany(Payment::class);
     }
+
     public function lessonProgress()
     {
         return $this->hasMany(LessonProgress::class);

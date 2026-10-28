@@ -19,6 +19,12 @@ class GetUsersRequest extends FormRequest
             'role' => ['nullable', 'string', Rule::in(['instructor', 'student','admin']),],
 
             'status' => ['nullable', Rule::enum(UserStatus::class),],
+
+            'page' => ['sometimes', 'integer', 'min:1',],
+
+            'per_page' => ['sometimes', 'integer', 'min:1', 'max:50',],
+
+            'search' => ['nullable', 'string', 'max:100',],
         ];
     }
 }

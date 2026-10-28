@@ -3,6 +3,7 @@
 use App\Http\Controllers\AdminController;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\CategoryController;
+use App\Http\Controllers\ContactMessageController;
 use App\Http\Controllers\CourseController;
 
 use App\Http\Controllers\InstructorController;
@@ -10,7 +11,9 @@ use App\Http\Controllers\LessonController;
 use App\Http\Controllers\PaymentController;
 use App\Http\Controllers\ReviewController;
 use App\Http\Controllers\SectionController;
+use App\Http\Controllers\StatsController;
 use App\Http\Controllers\StudentController;
+use App\Http\Controllers\TeachingMajorController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\Mail;
@@ -23,22 +26,30 @@ Route::prefix('student')->group(function () {
 Route::get('/courses/{courseId}/ratings', [ReviewController::class, 'getCourseRating']);
 Route::get('/instructors/{instructorProfileId}/ratings', [ReviewController::class, 'getInstructorRating']);
 Route::get('/categories',[StudentController::class, 'getAllCategories']);
+Route::get('/stats', [StatsController::class, 'index']);
+Route::get('/teaching-majors', [TeachingMajorController::class, 'index']);
+Route::post('/contact', [ContactMessageController::class, 'store'])->middleware('throttle:5,1');
 
 Route::prefix('auth')->group(function () {
-    Route::post('login', [AuthController::class, 'login']);
+    Route::post('login', [AuthController::class, 'login'])->middleware('throttle:10,1');
 //    Route::post('login/manager', [AuthController::class, 'loginManager']);
-    Route::post('/register', [AuthController::class, 'registerStudent']);
+    Route::post('/register', [AuthController::class, 'registerStudent'])->middleware('throttle:5,1');
     Route::get('/profile', [AuthController::class, 'profile'])->middleware('auth:sanctum');
     Route::post('/logout', [AuthController::class, 'logout'])->middleware('auth:sanctum');
-    Route::post('/register-instructor', [AuthController::class, 'registerInstructor',]);
-    Route::post('/forgot-password', [AuthController::class, 'forgotPassword',]);
-    Route::post('/reset-password', [AuthController::class, 'resetPassword',]);
+    Route::post('/change-password', [AuthController::class, 'changePassword'])->middleware('auth:sanctum');
+    Route::post('/register-instructor', [AuthController::class, 'registerInstructor',])->middleware('throttle:5,1');
+    Route::post('/forgot-password', [AuthController::class, 'forgotPassword',])->middleware('throttle:5,1');
+    Route::post('/reset-password', [AuthController::class, 'resetPassword',])->middleware('throttle:5,1');
     Route::put('/change-password', [AuthController::class, 'changePassword',])->middleware('auth:sanctum');
 });
 //admin////
 Route::prefix('admin')->middleware(['auth:sanctum','role:admin',])->group(function () {
 //    Route::post('/instructors', [AuthController::class, 'registerInstructor']);
+    Route::get('/stats', [StatsController::class, 'admin']);
+    Route::get('/contact-messages', [ContactMessageController::class, 'index']);
+    Route::patch('/contact-messages/{id}/read', [ContactMessageController::class, 'markAsRead']);
     Route::get('/users', [AdminController::class, 'getAllUsers']);
+    Route::get('/payments', [AdminController::class, 'getAllPayments']);
     Route::get('/users/{id}', [AdminController::class, 'getUserById']);
     Route::patch('/users/{id}/status', [AdminController::class, 'updateUserStatus']);
     Route::post('/categories', [CategoryController::class, 'createCategory']);
@@ -66,11 +77,14 @@ Route::prefix('instructor')->middleware(['auth:sanctum','role:instructor','user.
 
     Route::post('/sections/{sectionId}/lessons', [LessonController::class, 'createLesson']);
     Route::post('/lessons/{lessonVideoId}/video/retry', [LessonController::class, 'retryVideo']);
+    Route::post('/lessons/{lessonId}/video', [LessonController::class, 'replaceVideo']);
     Route::get('/sections/{sectionId}/lessons', [LessonController::class, 'getLessons']);//بجيب دروس السكشن
     Route::get('lessons/{lessonId}', [LessonController::class, 'getLessonById']);
     Route::put('/lessons/{lessonId}', [LessonController::class, 'updateLesson']);
     Route::delete('/lessons/{lessonId}', [LessonController::class, 'deleteLesson']);
 
+    Route::patch('/courses/{courseId}/sections/reorder', [SectionController::class, 'reorderSections']);
+    Route::patch('/sections/{sectionId}/lessons/reorder', [LessonController::class, 'reorderLessons']);
     Route::get('/courses/{courseId}/sections', [SectionController::class, 'getSections']);//بحيب كل السكشن تبع الكورس
 
     Route::get('/sections/{sectionId}', [SectionController::class, 'getSectionById']);
@@ -103,6 +117,8 @@ Route::prefix('student')->middleware(['auth:sanctum','role:student','user.status
 //    Route::post('/courses/{courseId}/payment', [PaymentController::class, 'createPayment']);
     Route::post('/courses/{courseId}/rate', [ReviewController::class, 'rateCourse']);
     Route::post('/courses/{courseId}/rate-instructor', [ReviewController::class, 'rateInstructor']);
+    Route::put('/courses/{courseId}/rate', [ReviewController::class, 'updateCourseRating']);
+    Route::put('/courses/{courseId}/rate-instructor', [ReviewController::class, 'updateInstructorRating']);
     Route::post('/lessons/{lessonId}/complete', [StudentController::class, 'completeLesson']);
     Route::delete('/lessons/{lessonId}/complete', [StudentController::class, 'uncompleteLesson']);
 

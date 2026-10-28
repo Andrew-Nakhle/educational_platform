@@ -8,16 +8,43 @@ use Illuminate\Support\Facades\Storage;
 
 class UserResource extends JsonResource
 {
+    /**
+     * Adds `birthday` for a response about the requester's own account
+     * that isn't authenticated yet (login). Otherwise it is added only
+     * when the user is the authenticated requester, so admin lists never
+     * show other users' birthdays.
+     */
+    protected bool $includeBirthday = false;
+
+    public function withBirthday(): static
+    {
+        $this->includeBirthday = true;
+
+        return $this;
+    }
+
     public function toArray(Request $request): array
     {
+        $own = $this->includeBirthday
+            || ($request->user() !== null && $request->user()->is($this->resource));
+
         return [
             'id' => $this->id,
             'phone' => $this->phone,
             'email' => $this->email,
             'gender' => $this->gender,
             'age' => $this->birthday?->age,
+            // Own account only (Y-m-d), so a profile form can show it.
+            'birthday' => $this->when($own, fn () => $this->birthday?->format('Y-m-d')),
             'role' => $this->getRoleNames()->first(),
             'status' => $this->status->value,
+
+            // Instructors only: why the application was rejected (or null).
+            'reject_reason' => $this->when(
+                $this->hasRole('instructor'),
+                fn () => $this->instructorProfile?->reject_reason
+            ),
+
             'profile' => $this->getProfileData(),
         ];
     }
@@ -33,9 +60,11 @@ class UserResource extends JsonResource
                 'father_name' => $this->studentProfile->father_name,
                 'last_name' => $this->studentProfile->last_name,
                 'avatar' => $this->studentProfile->avatar
-                    ? Storage::disk('b2')->temporaryUrl(
+                    ? Storage::disk(config('filesystems.upload_disk'))->temporaryUrl(
                         $this->studentProfile->avatar,
-                        now()->addMinutes(30)
+                        now()->addMinutes(
+                            (int) (config('filesystems.signed_url_minutes') ?? 30)
+                        )
                     )
                     : null,
             ];
@@ -51,9 +80,11 @@ class UserResource extends JsonResource
                 'last_name' => $this->instructorProfile->last_name,
 //استعملت انا هون temporaryUrl لان عندي ال bucket تبع backbaze هو private وعطيتو مدة صلاحية 30 دقيقة
                 'avatar' => $this->instructorProfile->avatar
-                    ? Storage::disk('b2')->temporaryUrl(
+                    ? Storage::disk(config('filesystems.upload_disk'))->temporaryUrl(
                         $this->instructorProfile->avatar,
-                        now()->addMinutes(30)
+                        now()->addMinutes(
+                            (int) (config('filesystems.signed_url_minutes') ?? 30)
+                        )
                     )
                     : null,
 
@@ -67,9 +98,11 @@ class UserResource extends JsonResource
                             'id' => $certificate->id,
 
                             'certification' => $certificate->certification
-                                ? Storage::disk('b2')->temporaryUrl(
+                                ? Storage::disk(config('filesystems.upload_disk'))->temporaryUrl(
                                     $certificate->certification,
-                                    now()->addMinutes(30)
+                                    now()->addMinutes(
+                                        (int) (config('filesystems.signed_url_minutes') ?? 30)
+                                    )
                                 )
                                 : null,
                         ];

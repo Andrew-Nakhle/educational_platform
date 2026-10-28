@@ -29,7 +29,7 @@ class StoreCourseRequest extends FormRequest
             'title' => ['required', 'string', 'max:255',],
             'description' => ['required', 'string',],
             'price' => ['required', 'numeric', 'min:0',],
-            'thumbnail' => ['required', 'image', 'mimes:jpg,jpeg,png,webp',],
+            'thumbnail' => ['required', 'image', 'mimes:jpg,jpeg,png,webp', 'max:'.config('uploads.thumbnail_max_kb'),],
             'category_id' => ['required', 'integer', 'exists:categories,id',],
             'language' => [
                 'required',

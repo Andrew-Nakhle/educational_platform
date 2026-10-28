@@ -33,7 +33,7 @@ class RegisterInstructorRequest extends FormRequest
             'phone' => ['required', 'string', 'max:20',],
             'email' => ['required', 'email', 'max:255',],
             'password' => ['required', 'string', 'min:8', 'confirmed',],
-            'avatar' => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp'],
+            'avatar' => ['sometimes', 'nullable', 'image', 'mimes:jpg,jpeg,png,webp'],
             'teaching_major' => ['required', Rule::enum(TeachingMajor::class),],
             'bio' => ['nullable', 'string', 'max:2000',],
             'certifications' => ['nullable', 'array',],

@@ -21,14 +21,25 @@ class Course extends Model
         'what_you_will_learn',
         'duration_hours',
         'status',
+        'reject_reason',
     ];
     protected $casts=[
         'difficulty_level'=>DifficultyLevel::class,
         'status' => CourseStatus::class,
         'duration_seconds' => 'integer',
         'language' => Language::class,
+        'price' => 'decimal:2',
 
     ];
+    /**
+     * Content (details, sections, lessons) can only change while the
+     * course is a draft or was rejected.
+     */
+    public function isEditable(): bool
+    {
+        return in_array($this->status, [CourseStatus::DRAFT, CourseStatus::REJECTED], true);
+    }
+
     public function instructorProfile()
     {
         return $this->belongsTo(InstructorProfile::class);
@@ -50,8 +61,23 @@ class Course extends Model
     {
         return $this->hasMany(Payment::class);
     }
+
     public function reviews()
     {
         return $this->hasMany(CourseReview::class);
+    }
+
+    public function lessons()
+    {
+        return $this->hasManyThrough(Lesson::class, Section::class);
+    }
+
+    /**
+     * At least one section with at least one lesson: needed to submit a
+     * course for publishing and to approve it.
+     */
+    public function hasLessons(): bool
+    {
+        return $this->lessons()->exists();
     }
 }

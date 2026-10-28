@@ -50,7 +50,11 @@ return [
     |
     */
 
-    'expiration' => null,
+    // SANCTUM_TOKEN_EXPIRATION_MINUTES: unset or empty = tokens never expire
+    // (the previous behavior). An expired token gets the usual 401 JSON.
+    'expiration' => is_numeric(env('SANCTUM_TOKEN_EXPIRATION_MINUTES'))
+        ? (int) env('SANCTUM_TOKEN_EXPIRATION_MINUTES')
+        : null,
 
     /*
     |--------------------------------------------------------------------------

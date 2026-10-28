@@ -6,6 +6,7 @@ use App\Enums\Course\CourseStatus;
 use App\Enums\Course\VideoStatus;
 use App\Enums\Payment\PaymentProvider;
 use App\Enums\Payment\PaymentStatus;
+use App\Exceptions\PaymentsUnavailableException;
 use App\Http\Requests\Student\GetCoursesRequest;
 use App\Http\Requests\Student\UpdateStudentProfileRequest;
 use App\Http\Resources\Admin\CategoryResource;
@@ -13,24 +14,33 @@ use App\Http\Resources\Auth\UserResource;
 use App\Http\Resources\Course\CourseResource;
 use App\Models\Category;
 use App\Models\Course;
+use App\Models\CourseReview;
 use App\Models\Lesson;
+use App\Models\InstructorReview;
+use App\Models\Payment;
+use App\Services\CourseProgressService;
 use App\Models\LessonProgress;
 use App\Services\StripePaymentService;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
 use Illuminate\Support\Facades\Log;
 
 use Illuminate\Support\Facades\Storage;
 use mysql_xdevapi\Collection;
+use Stripe\Exception\AuthenticationException;
 use Throwable;
+use App\Support\Redact;
 
 
 
 class StudentController extends Controller{
 
     public function __construct(
-        private StripePaymentService $stripePaymentService
+        private StripePaymentService $stripePaymentService,
+        private CourseProgressService $courseProgressService
     ){}
     public function updateProfile(
         UpdateStudentProfileRequest $request
@@ -39,28 +49,33 @@ class StudentController extends Controller{
 
         if ($request->hasFile('avatar')) {
             $validated['avatar'] = $request->file('avatar')
-                ->store('students/avatars', 'b2');
+                ->store('students/avatars', config('filesystems.upload_disk'));
         }
         $user = DB::transaction(function () use ($request, $validated) {
 
             $user = $request->user();
 
-            $user->update([
+            $user->update(array_merge([
                 'phone' => $validated['phone'],
                 'gender' => $validated['gender'],
-                'birthday' => $validated['birthday'],
-            ]);
+            ], array_key_exists('birthday', $validated) ? ['birthday' => $validated['birthday']] : []));
+
+            $profileData = [
+                'first_name' => $validated['first_name'],
+                'father_name' => $validated['father_name'],
+                'last_name' => $validated['last_name'],
+            ];
+
+            // Keep the current avatar unless a new file was uploaded.
+            if (isset($validated['avatar'])) {
+                $profileData['avatar'] = $validated['avatar'];
+            }
 
             $user->studentProfile()->updateOrCreate(
                 [
                     'user_id' => $user->id,
                 ],
-                [
-                    'first_name' => $validated['first_name'],
-                    'father_name' => $validated['father_name'],
-                    'last_name' => $validated['last_name'],
-                    'avatar' => $validated['avatar'] ?? null,
-                ]
+                $profileData
             );
 
             return $user->load([
@@ -69,9 +84,12 @@ class StudentController extends Controller{
             ]);
         });
 
+        $resource = new UserResource($user);
+
         return response()->json([
             'message' => 'Student profile updated successfully.',
-            'user' => new UserResource($user),
+            'user' => $resource,
+            'data' => $resource,
         ]);
     }
 
@@ -84,6 +102,10 @@ class StudentController extends Controller{
         ]);
 
         $student = $request->user();
+
+        // The payment created by this request, if any: marked failed when
+        // Stripe can't start it, so a later retry starts a fresh one.
+        $newPayment = null;
 
         try {
             // Step 1: Validate course and prepare payment record.
@@ -140,6 +162,19 @@ class StudentController extends Controller{
                     ->latest()
                     ->first();
 
+                // A pending payment with neither a Checkout Session nor a
+                // PaymentIntent was never started at Stripe (e.g. the
+                // provider call failed): it is abandoned, so it is marked
+                // failed and a new one is created below.
+                if (
+                    $existingPayment
+                    && ! $existingPayment->stripe_checkout_session_id
+                    && ! $existingPayment->provider_payment_id
+                ) {
+                    $existingPayment->update(['status' => PaymentStatus::FAILED]);
+                    $existingPayment = null;
+                }
+
                 if ($existingPayment) {
                     return [
                         'existing_payment' => $existingPayment,
@@ -174,6 +209,8 @@ class StudentController extends Controller{
                     'enrollment' => $result['enrollment'],
                 ], 201);
             }
+
+            $newPayment = $result['payment'] ?? null;
 
             $payment = $result['payment']
                 ?? $result['existing_payment'];
@@ -313,11 +350,30 @@ class StudentController extends Controller{
                 'client_secret' => $stripePayment['client_secret'],
             ], 201);
 
+        } catch (PaymentsUnavailableException|AuthenticationException $e) {
+            // No secret, or Stripe refused the key: nothing the student can fix.
+            $this->markPaymentFailed($newPayment);
+
+            Log::error('Payments are unavailable (Stripe is not configured or refused the key).', [
+                'student_id' => $student->id,
+                'course_id' => $courseId,
+                'payment_id' => $newPayment?->id,
+                'exception' => $e::class,
+                'error' => Redact::secrets($e->getMessage()),
+            ]);
+
+            return response()->json([
+                'message' => PaymentsUnavailableException::PUBLIC_MESSAGE,
+            ], 503);
         } catch (Throwable $e) {
+            $this->markPaymentFailed($newPayment);
+
             Log::error('Course enrollment or payment initiation failed.', [
                 'student_id' => $student->id,
                 'course_id' => $courseId,
-                'error' => $e->getMessage(),
+                'payment_id' => $newPayment?->id,
+                'exception' => $e::class,
+                'error' => Redact::secrets($e->getMessage()),
             ]);
 
             return response()->json([
@@ -326,15 +382,40 @@ class StudentController extends Controller{
         }
     }
 
+    /**
+     * A payment this request created but could not start at Stripe: failed,
+     * so it never blocks a later attempt.
+     */
+    private function markPaymentFailed(?Payment $payment): void
+    {
+        if (! $payment) {
+            return;
+        }
+
+        try {
+            $payment->refresh();
+
+            if (in_array($payment->status, [PaymentStatus::PENDING, PaymentStatus::PROCESSING], true)) {
+                $payment->update(['status' => PaymentStatus::FAILED]);
+            }
+        } catch (Throwable $e) {
+            Log::error('Could not mark a payment as failed.', [
+                'payment_id' => $payment->id,
+                'exception' => $e::class,
+            ]);
+        }
+    }
 
 
 
 
-    public function getMyCourses(): JsonResponse
+
+            public function getMyCourses(Request $request)
     {
         $student = auth()->user();
 
         $enrollments = $student->enrollments()
+            ->whereHas('course')
             ->with([
                 'course.category',
                 'course.instructorProfile',
@@ -343,48 +424,47 @@ class StudentController extends Controller{
             ->latest('enrolled_at')
             ->get();
 
-        $data = $enrollments->map(function ($enrollment) use ($student) {
-            $course = $enrollment->course;
+        $progress = $this->courseProgressService->forCourses(
+            $student,
+            $enrollments->pluck('course_id')->all()
+        );
 
-            if (! $course) {
-                return null;
-            }
+        // The student's own course rating (1-5) per course, or null.
+        $myRatings = CourseReview::query()
+            ->where('user_id', $student->id)
+            ->whereIn('course_id', $enrollments->pluck('course_id'))
+            ->pluck('rating', 'course_id');
 
-            $lessons = $course->sections
-                ->flatMap(fn ($section) => $section->lessons);
+        // The student's own rating (1-5) of each course's instructor, or null.
+        $myInstructorRatings = InstructorReview::query()
+            ->where('user_id', $student->id)
+            ->whereIn('instructor_profile_id', $enrollments->pluck('course.instructor_profile_id')->filter()->unique())
+            ->pluck('rating', 'instructor_profile_id');
 
-            $completedLessonIds = \App\Models\LessonProgress::query()
-                ->where('user_id', $student->id)
-                ->whereIn('lesson_id', $lessons->pluck('id'))
-                ->whereNotNull('completed_at')
-                ->pluck('lesson_id');
+        $courses = $enrollments->map(function ($enrollment) use ($progress, $request, $myRatings, $myInstructorRatings) {
+            $courseProgress = $progress[$enrollment->course_id];
+            $instructorProfileId = $enrollment->course->instructor_profile_id;
 
-            $completedCount = $completedLessonIds->unique()->count();
-            $totalLessons = $lessons->count();
-
-            $lastLessonId = $lessons
-                ->filter(fn ($lesson) => $completedLessonIds->contains($lesson->id))
-                ->sortByDesc(fn ($lesson) => $lesson->sort_order)
-                ->first()?->id;
-
-            $courseData = (new CourseResource($course))->resolve();
-
-            $courseData['enrolled_at'] = $enrollment->enrolled_at;
-            $courseData['last_lesson_id'] = $lastLessonId;
-            $courseData['progress'] = [
-                'completed_lessons' => $completedCount,
-                'total_lessons' => $totalLessons,
-                'percent' => $totalLessons > 0
-                    ? (int) round(($completedCount / $totalLessons) * 100)
-                    : 0,
-            ];
-
-            return $courseData;
-        })->filter()->values();
+            return array_merge(
+                (new CourseResource($enrollment->course))->resolve($request),
+                [
+                    'enrolled_at' => $enrollment->enrolled_at?->toISOString(),
+                    'last_lesson_id' => $courseProgress['last_lesson_id'],
+                    'progress' => $courseProgress['progress'],
+                    'my_rating' => isset($myRatings[$enrollment->course_id])
+                        ? (int) $myRatings[$enrollment->course_id]
+                        : null,
+                    'my_instructor_rating' => isset($myInstructorRatings[$instructorProfileId])
+                        ? (int) $myInstructorRatings[$instructorProfileId]
+                        : null,
+                ]
+            );
+        })->values();
 
         return response()->json([
-            'message' => 'My courses retrieved successfully.',
-            'data' => $data,
+            'message' => 'Enrolled courses retrieved successfully.',
+            'courses' => $courses,
+            'data' => $courses,
         ]);
     }
 
@@ -396,6 +476,8 @@ class StudentController extends Controller{
 
         $query = Course::query()
             ->where('status', CourseStatus::PUBLISHED->value);
+
+        $this->withCatalogAttributes($query, $request);
 
         if (! empty($validated['category_id'])) {
             $query->where(
@@ -410,21 +492,42 @@ class StudentController extends Controller{
             $query->where('title', 'like', "%{$search}%");
         }
 
+        // With ?page= the response adds `meta` and honours per_page;
+        // without it, it stays exactly as before (12 per page, no meta).
+        $paginate = $request->has('page');
+
+        $query->latest();
+
+        if ($paginate) {
+            // Stable pages when several courses share created_at.
+            $query->latest('id');
+        }
+
         $courses = $query
-            ->latest()
-            ->paginate(12)
+            ->paginate($paginate ? (int) ($validated['per_page'] ?? 12) : 12)
             ->withQueryString();
 
-        return response()->json([
+        $response = [
             'message' => 'Courses retrieved successfully.',
             'data' => CourseResource::collection($courses),
-        ]);
+        ];
+
+        if ($paginate) {
+            $response['meta'] = $this->paginationMeta($courses);
+        }
+
+        return response()->json($response);
     }
     //هاد التابع لعرض تفاصيل الكورس يعني بس ابحث عن كورسات وجيب مجموعة واكبس عليه بستدعي هاد التابع لعرض التفاصيل
-    public function showCourse(int $courseId)
+    public function showCourse(Request $request, int $courseId)
     {
-        $course = Course::query()
-            ->where('status', CourseStatus::PUBLISHED->value)
+        $query = Course::query()
+            ->where('status', CourseStatus::PUBLISHED->value);
+
+        $this->withCatalogAttributes($query, $request);
+
+        $course = $query
+            ->withCount(['sections', 'lessons'])
             ->with([
                 'category',
                 'instructorProfile',
@@ -437,10 +540,40 @@ class StudentController extends Controller{
             ])
             ->findOrFail($courseId);
 
+        $completedLessonIds = $course->is_enrolled
+            ? $this->courseProgressService->completedLessonIds(
+                $request->user('sanctum'),
+                $course->id
+            )
+            : null;
+
         return response()->json([
             'message' => 'Course details retrieved successfully.',
-            'data' => new CourseResource($course),
+            'data' => (new CourseResource($course))
+                ->withCompletedLessonIds($completedLessonIds),
         ]);
+    }
+
+    /**
+     * Ratings for the course list/details, plus `is_enrolled` for the
+     * optional Sanctum token (no token, or not a student: false).
+     */
+    private function withCatalogAttributes(Builder $query, Request $request): void
+    {
+        $user = $request->user('sanctum');
+
+        $studentId = $user && $user->hasRole('student')
+            ? $user->id
+            : 0;
+
+        $query
+            ->withCount('reviews')
+            ->withCount('enrollments') // students_count, as on the instructor and admin lists
+            ->withAvg('reviews', 'rating')
+            ->withExists([
+                'enrollments as is_enrolled' => fn ($enrollments) =>
+                    $enrollments->where('user_id', $studentId),
+            ]);
     }
 
     public function getLessonVideo(int $lessonId)
@@ -476,7 +609,7 @@ class StudentController extends Controller{
             ], 404);
         }
 
-        $videoUrl = Storage::disk('b2')->temporaryUrl(
+        $videoUrl = Storage::disk(config('filesystems.upload_disk'))->temporaryUrl(
             $video->playlist_path,
             now()->addMinutes(30)
         );

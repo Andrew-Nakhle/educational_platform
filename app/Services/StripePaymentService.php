@@ -3,22 +3,27 @@
 namespace App\Services;
 
 use App\Contracts\Payment\PaymentProviderInterface;
+use App\Exceptions\PaymentsUnavailableException;
 use Stripe\StripeClient;
 
 class StripePaymentService implements PaymentProviderInterface
 {
+    /**
+     * Created on first use, so routes that never make a payment
+     * work without STRIPE_SECRET.
+     */
     protected ?StripeClient $stripe = null;
 
-    private function stripe(): StripeClient
+    protected function stripe(): StripeClient
     {
-        if ($this->stripe !== null) {
+        if ($this->stripe) {
             return $this->stripe;
         }
 
         $secret = config('services.stripe.secret');
 
-        if (! is_string($secret) || $secret === '') {
-            throw new \RuntimeException(
+        if (! is_string($secret) || trim($secret) === '') {
+            throw new PaymentsUnavailableException(
                 'Stripe secret is not configured.'
             );
         }
@@ -96,9 +101,7 @@ class StripePaymentService implements PaymentProviderInterface
 
     public function retrieveCheckoutSession(string $sessionId): array
     {
-        $session = $this->stripe()->checkout->sessions->retrieve(
-            $sessionId
-        );
+        $session = $this->stripe()->checkout->sessions->retrieve($sessionId);
 
         return [
             'checkout_session_id' => $session->id,
@@ -110,9 +113,7 @@ class StripePaymentService implements PaymentProviderInterface
 
     public function retrievePaymentIntent(string $intentId): array
     {
-        $intent = $this->stripe()->paymentIntents->retrieve(
-            $intentId
-        );
+        $intent = $this->stripe()->paymentIntents->retrieve($intentId);
 
         return [
             'provider_payment_id' => $intent->id,

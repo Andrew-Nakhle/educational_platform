@@ -3,6 +3,8 @@
 namespace App\Http\Controllers;
 
 use App\Enums\Course\VideoStatus;
+use App\Http\Requests\Instructor\ReorderRequest;
+use App\Http\Requests\Instructor\ReplaceLessonVideoRequest;
 use App\Http\Requests\Instructor\StoreLessonRequest;
 use App\Http\Requests\Instructor\UpdateLessonRequest;
 use App\Http\Resources\Course\LessonResource;
@@ -12,7 +14,10 @@ use App\Models\LessonVideo;
 use App\Models\Section;
 use App\Services\B2StorageService;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
+use Throwable;
+use App\Support\Redact;
 
 class LessonController extends Controller
 {
@@ -34,6 +39,10 @@ class LessonController extends Controller
             ], 403);
         }
 
+        if ($locked = $this->courseContentLocked($section->course)) {
+            return $locked;
+        }
+
         $sortOrder = $section->lessons()->count() + 1;
 
         $lesson = DB::transaction(function () use (
@@ -51,7 +60,7 @@ class LessonController extends Controller
 
             $sourcePath = $request->file('video')->store(
                 'lessons/source',
-                'b2'
+                config('filesystems.upload_disk')
             );
 
             $lessonVideo = $lesson->video()->create([
@@ -73,6 +82,86 @@ class LessonController extends Controller
     }
 
 
+    // POST /instructor/lessons/{lessonId}/video (multipart, field: video)
+    public function replaceVideo(ReplaceLessonVideoRequest $request, int $lessonId)
+    {
+        $lesson = Lesson::with('section.course', 'video')
+            ->find($lessonId);
+
+        if (! $lesson) {
+            return response()->json([
+                'message' => 'Lesson not found.',
+            ], 404);
+        }
+
+        if (
+            (int) $lesson->section->course->instructor_profile_id
+            !== (int) $request->user()->instructorProfile?->id
+        ) {
+            return response()->json([
+                'message' => 'You are not authorized to update this lesson.',
+            ], 403);
+        }
+
+        if ($locked = $this->courseContentLocked($lesson->section->course)) {
+            return $locked;
+        }
+
+        $oldVideo = $lesson->video;
+        $oldSourcePath = $oldVideo?->source_path;
+        $oldHlsDirectory = $oldVideo?->playlist_path
+            ? dirname($oldVideo->playlist_path)
+            : null;
+
+        $sourcePath = $request->file('video')->store(
+            'lessons/source',
+            config('filesystems.upload_disk')
+        );
+
+        $lessonVideo = DB::transaction(function () use ($lesson, $sourcePath) {
+            $lesson->update([
+                'duration_seconds' => 0,
+            ]);
+
+            return $lesson->video()->updateOrCreate(
+                ['lesson_id' => $lesson->id],
+                [
+                    'source_path' => $sourcePath,
+                    'playlist_path' => null,
+                    'duration_seconds' => 0,
+                    'status' => VideoStatus::PROCESSING,
+                ]
+            );
+        });
+
+        /*
+         * Remove the old files before dispatching: the job writes the new
+         * HLS output to the same lessons/{id}/hls directory, and with the
+         * sync queue it runs immediately.
+         */
+        try {
+            if ($oldSourcePath && $oldSourcePath !== $sourcePath) {
+                $this->b2StorageService->deleteAllB2Versions($oldSourcePath);
+            }
+
+            if ($oldHlsDirectory) {
+                $this->b2StorageService->deleteAllB2Versions($oldHlsDirectory, true);
+            }
+        } catch (Throwable $e) {
+            Log::warning('Failed to delete the old lesson video files.', [
+                'lesson_id' => $lesson->id,
+                'error' => Redact::secrets($e->getMessage()),
+            ]);
+        }
+
+        ProcessLessonVideo::dispatch($lessonVideo->id);
+
+        return response()->json([
+            'message' => 'Lesson video replaced successfully. Video processing started.',
+            'lesson' => new LessonResource($lesson->refresh()->load('video')),
+        ]);
+    }
+
     public function retryVideo(int $lessonVideoId)
     {
         $lessonVideo = LessonVideo::with('lesson.section.course')
@@ -81,7 +170,7 @@ class LessonController extends Controller
         if (!$lessonVideo) {
             return response()->json([
                 'message' => 'Lesson video not found.',
-            ]);
+            ], 404);
         }
         $instructorProfile = request()->user()->instructorProfile;
 
@@ -121,7 +210,7 @@ class LessonController extends Controller
         if (!$section){
             return response()->json([
                 'message' => 'Section not found.',
-            ]);
+            ], 404);
         }
 
         $instructorProfile = request()->user()->instructorProfile;
@@ -150,7 +239,7 @@ class LessonController extends Controller
         if (!$lesson) {
             return response()->json([
                 'message' => 'Lesson not found.',
-            ]);
+            ], 404);
         }
 
         $instructorProfile = request()->user()->instructorProfile;
@@ -179,7 +268,7 @@ class LessonController extends Controller
         if (!$lesson) {
             return response()->json([
                 'message' => 'Lesson not found.',
-            ]);
+            ], 404);
         }
 
         $instructorProfile = $request->user()->instructorProfile;
@@ -191,6 +280,10 @@ class LessonController extends Controller
             return response()->json([
                 'message' => 'You are not authorized to update this lesson.',
             ], 403);
+        }
+
+        if ($locked = $this->courseContentLocked($lesson->section->course)) {
+            return $locked;
         }
 
         $lesson->update($validated);
@@ -259,11 +352,15 @@ class LessonController extends Controller
             ], 403);
         }
 
+        if ($locked = $this->courseContentLocked($lesson->section->course)) {
+            return $locked;
+        }
+
         $lessonVideo = $lesson->video;
 
         if ($lessonVideo) {
 
-            $disk = Storage::disk('b2');
+            $disk = Storage::disk(config('filesystems.upload_disk'));
 
             /*
              * Delete original source video
@@ -300,5 +397,35 @@ class LessonController extends Controller
         ]);
     }
 
+    // PATCH /instructor/sections/{sectionId}/lessons/reorder { ids: [...] }
+    public function reorderLessons(ReorderRequest $request, int $sectionId)
+    {
+        $section = Section::with(['course', 'lessons'])->find($sectionId);
 
+        if (! $section) {
+            return response()->json([
+                'message' => 'Section not found.',
+            ], 404);
+        }
+
+        if ((int) $section->course?->instructor_profile_id !== (int) $request->user()->instructorProfile?->id) {
+            return response()->json([
+                'message' => 'You are not authorized to reorder these lessons.',
+            ], 403);
+        }
+
+        if ($locked = $this->courseContentLocked($section->course)) {
+            return $locked;
+        }
+
+        $this->applySortOrder(
+            $section->lessons,
+            $request->validated()['ids'],
+            'The ids must list every lesson of this section exactly once.'
+        );
+
+        return response()->json([
+            'message' => 'Lessons reordered successfully.',
+        ]);
+    }
 }

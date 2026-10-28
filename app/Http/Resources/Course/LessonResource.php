@@ -17,9 +17,10 @@ class LessonResource extends JsonResource
             'duration_seconds' => $this->duration_seconds,
             'sort_order' => $this->sort_order,
 
-            'video_status' => $this->whenLoaded('video', function () {
-                return $this->video?->status?->value;
-            }),
+            'video_status' => $this->whenLoaded(
+                'video',
+                fn () => $this->video?->status?->value
+            ),
 
             'video' => $this->whenLoaded('video', function () {
                 if (! $this->video) {

@@ -11,6 +11,7 @@ use App\Models\Course;
 use App\Services\B2StorageService;
 use Illuminate\Support\Facades\DB;
 use Throwable;
+use App\Support\Redact;
 
 class CourseController extends Controller
 {
@@ -31,7 +32,7 @@ class CourseController extends Controller
             $instructorProfile = $request->user()->instructorProfile;
 
             $thumbnailPath = $request->file('thumbnail')
-                ->store('courses/thumbnails', 'b2');
+                ->store('courses/thumbnails', config('filesystems.upload_disk'));
 
             return $instructorProfile->courses()->create([
                 'category_id' => $validated['category_id'],
@@ -63,26 +64,39 @@ class CourseController extends Controller
 
         $instructor = auth()->user()->instructorProfile;
 
-        $query = $instructor->courses();
+        $query = $instructor->courses()->withCount(['enrollments', 'sections', 'lessons']);
 
         if (isset($validated['status'])) {
             $query->where('status', $validated['status']);
         }
 
+        if ($request->has('page')) {
+            $courses = $query
+                ->latest()
+                ->latest('id')
+                ->paginate((int) ($validated['per_page'] ?? 15));
+
+            return response()->json([
+                'message' => 'Courses retrieved successfully.',
+                'data' => CourseResource::ownedCollection($courses),
+                'meta' => $this->paginationMeta($courses),
+            ]);
+        }
+
         return response()->json([
-            'courses' => CourseResource::collection(
+            'courses' => CourseResource::ownedCollection(
                 $query->get()
             ),
         ]);
     }
     public function getCourseById($courseId){
-        $course=Course::find($courseId);
+        $course=Course::withCount(['enrollments', 'sections', 'lessons'])->find($courseId);
         $instructor=auth()->user()->instructorProfile;
 
         if(!$course){
             return response()->json([
                 'message' => 'Course not found.',
-            ]);
+            ], 404);
         }
         if ($instructor->id != $course->instructorProfile->id) {
             return response()->json([
@@ -90,7 +104,7 @@ class CourseController extends Controller
             ],403);
         }
         return response()->json([
-            'course' => new CourseResource($course)
+            'course' => (new CourseResource($course))->withRejectReason()
         ]);
 
     }
@@ -120,6 +134,12 @@ class CourseController extends Controller
             ], 403);
         }
 
+        if (! $course->isEditable()) {
+            return response()->json([
+                'message' => 'Only draft or rejected courses can be updated.',
+            ], 422);
+        }
+
         /*
          * Keep the old thumbnail path.
          */
@@ -131,7 +151,7 @@ class CourseController extends Controller
         if ($request->hasFile('thumbnail')) {
 
             $newThumbnail = $request->file('thumbnail')
-                ->store('courses/thumbnails', 'b2');
+                ->store('courses/thumbnails', config('filesystems.upload_disk'));
 
             $validated['thumbnail'] = $newThumbnail;
         }
@@ -179,6 +199,12 @@ class CourseController extends Controller
             return response()->json([
                 'message' => 'You are not authorized to delete this course.',
             ], 403);
+        }
+
+        if ($course->status !== CourseStatus::DRAFT) {
+            return response()->json([
+                'message' => 'Only draft courses can be deleted.',
+            ], 422);
         }
 
         try {
@@ -230,7 +256,7 @@ class CourseController extends Controller
 
             return response()->json([
                 'message' => 'Failed to delete course files. The course was not deleted.',
-                'error' => $e->getMessage(),
+                'error' => Redact::secrets($e->getMessage()),
             ], 500);
         }
 
@@ -252,7 +278,7 @@ class CourseController extends Controller
 if (! $course) {
     return response()->json([
         'message' => 'Course not found.',
-    ]);
+    ], 404);
 }
         $instructorProfile = request()->user()->instructorProfile;
 
@@ -265,14 +291,22 @@ if (! $course) {
             ], 403);
         }
 
-        if ($course->status !== CourseStatus::DRAFT) {
+        if (! in_array($course->status, [CourseStatus::DRAFT, CourseStatus::REJECTED], true)) {
             return response()->json([
-                'message' => 'Only draft courses can be submitted for publishing.',
+                'message' => 'Only draft or rejected courses can be submitted for publishing.',
             ], 422);
         }
 
+        if (! $course->hasLessons()) {
+            return response()->json([
+                'message' => 'Add at least one section with at least one lesson before submitting the course for publishing.',
+            ], 422);
+        }
+
+        // Resubmitting a rejected course clears the previous reason.
         $course->update([
             'status' => CourseStatus::PENDING_PUBLISH,
+            'reject_reason' => null,
         ]);
 
         return response()->json([
